@@ -1,0 +1,11 @@
+payer,payer_type,allowed_pct_preventive,allowed_pct_basic,allowed_pct_major,coverage_preventive,coverage_basic,coverage_major,deductible,annual_max,waiting_months_major,source
+Cash,self_pay,1.00,1.00,1.00,0,0,0,0,0,0,office fee less cash discount
+Delta Dental PPO,ppo,0.60,0.60,0.60,1.0,0.8,0.5,50,1500,0,NY write-off typically 35-45% of office fee
+Delta Dental Premier,premier,0.78,0.78,0.78,1.0,0.8,0.5,50,1500,0,modeled above PPO
+MetLife PDP,ppo,0.58,0.58,0.58,1.0,0.8,0.5,50,1500,0,NY write-off typically 35-45% of office fee
+Cigna DPPO,ppo,0.52,0.52,0.52,1.0,0.8,0.5,50,1250,0,example practice saw about 48% Cigna write-off
+Aetna DPPO,ppo,0.60,0.60,0.60,1.0,0.8,0.5,50,1500,12,example practice saw about 38% write-off
+Guardian,ppo,0.60,0.60,0.60,1.0,0.8,0.5,50,1500,12,NY write-off typically 35-45% of office fee
+UnitedHealthcare Dental,ppo,0.66,0.66,0.66,1.0,0.8,0.5,50,1500,0,example practice saw about 32% write-off
+Empire Anthem,ppo,0.60,0.60,0.60,1.0,0.8,0.5,50,1500,0,NY write-off typically 35-45% of office fee
+NY Medicaid,medicaid,schedule,schedule,schedule,1.0,1.0,1.0,0,0,0,eMedNY 2026 fee schedule plus flagged estimates

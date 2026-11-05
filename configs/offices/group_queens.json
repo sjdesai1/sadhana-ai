@@ -1,0 +1,524 @@
+{
+  "office_id": "group_queens",
+  "name": "Demo Group Practice, Queens",
+  "state": "NY",
+  "fee_multiplier": 0.85,
+  "collection_rate": 0.96,
+  "cash_discount": 0.05,
+  "operatories": 10,
+  "operatory_roles": {
+    "hygiene": 4,
+    "doctor": 5,
+    "specialist": 1
+  },
+  "equipment": [
+    "pano",
+    "cbct",
+    "scanner",
+    "nitrous"
+  ],
+  "hours": {
+    "Mon": [
+      "08:00",
+      "19:00"
+    ],
+    "Tue": [
+      "08:00",
+      "19:00"
+    ],
+    "Wed": [
+      "08:00",
+      "19:00"
+    ],
+    "Thu": [
+      "08:00",
+      "19:00"
+    ],
+    "Fri": [
+      "08:00",
+      "17:00"
+    ],
+    "Sat": [
+      "08:00",
+      "14:00"
+    ]
+  },
+  "lunch": [
+    "13:00",
+    "14:00"
+  ],
+  "turnover_min": 10,
+  "doctor_check_min_in_hygiene": 10,
+  "emergency_slots_per_day": 2,
+  "cancellation_policy": {
+    "fee": 25,
+    "notice_hours": 24,
+    "collection_rate": 0.3
+  },
+  "accepts_medicaid": true,
+  "payer_mix": {
+    "Cash": 0.1,
+    "Delta Dental PPO": 0.18,
+    "MetLife PDP": 0.11,
+    "Cigna DPPO": 0.09,
+    "Aetna DPPO": 0.07,
+    "Guardian": 0.06,
+    "UnitedHealthcare Dental": 0.06,
+    "Empire Anthem": 0.05,
+    "NY Medicaid": 0.28
+  },
+  "rules": [
+    "No crown preps after 16:30",
+    "Specialist days booked 3+ weeks ahead with long blocks",
+    "Junior associate does not place implants, molar root canals or impactions",
+    "Unlicensed assistant only chairside while dentist is at the chair",
+    "Hygienist anesthesia and nitrous only when a dentist is in the office",
+    "Medicaid patients get no cancellation fee"
+  ],
+  "staff": [
+    {
+      "id": "D1",
+      "name": "Dr Owner",
+      "role": "owner_dentist",
+      "tier": "senior",
+      "specialty": "",
+      "certs": [
+        "implant_surgery",
+        "oral_surgery",
+        "aligner_certified",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "owner_opportunity",
+        "hourly_value": 500
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "D2",
+      "name": "Dr Senior Associate",
+      "role": "associate_dentist",
+      "tier": "senior",
+      "specialty": "",
+      "certs": [
+        "aligner_certified",
+        "nitrous",
+        "oral_surgery"
+      ],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.32,
+        "daily_guarantee": 800,
+        "hourly_value": 400
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "D3",
+      "name": "Dr Junior Associate",
+      "role": "associate_dentist",
+      "tier": "junior",
+      "specialty": "",
+      "certs": [
+        "nitrous"
+      ],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.28,
+        "daily_guarantee": 650,
+        "hourly_value": 300
+      },
+      "speed": 1.25,
+      "days": [
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin",
+        "Cantonese"
+      ]
+    },
+    {
+      "id": "S1",
+      "name": "Dr Visiting Endodontist",
+      "role": "specialist",
+      "tier": "senior",
+      "specialty": "endo",
+      "certs": [],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.45,
+        "daily_guarantee": 0
+      },
+      "speed": 0.7,
+      "days": [
+        "Wed"
+      ],
+      "frequency": "2 per month",
+      "scope_codes": [
+        "D3310",
+        "D3320",
+        "D3330"
+      ],
+      "languages": [
+        "English"
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "Dr Visiting Periodontist",
+      "role": "specialist",
+      "tier": "senior",
+      "specialty": "perio",
+      "certs": [
+        "implant_surgery",
+        "local_anesthesia"
+      ],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.45,
+        "daily_guarantee": 0
+      },
+      "speed": 0.8,
+      "days": [
+        "Fri"
+      ],
+      "frequency": "1 per month",
+      "scope_codes": [
+        "D4260",
+        "D4341",
+        "D4342",
+        "D6010",
+        "D0180"
+      ],
+      "languages": [
+        "English",
+        "Russian"
+      ]
+    },
+    {
+      "id": "H1",
+      "name": "Hygienist A",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 55
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Hygienist B",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 54
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin"
+      ]
+    },
+    {
+      "id": "H3",
+      "name": "Hygienist C",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 52
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "H4",
+      "name": "Hygienist D",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 56
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Haitian Creole"
+      ]
+    },
+    {
+      "id": "A1",
+      "name": "Assistant A",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 26
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Assistant B",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 26
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Cantonese"
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Assistant C",
+      "role": "dental_assistant",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 20
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Assistant D",
+      "role": "dental_assistant",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 20
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "A5",
+      "name": "Assistant E",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 27
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English",
+        "Russian"
+      ]
+    },
+    {
+      "id": "F1",
+      "name": "Front Desk A",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 22
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "F2",
+      "name": "Front Desk B",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 22
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin",
+        "Cantonese"
+      ]
+    },
+    {
+      "id": "F3",
+      "name": "Front Desk C",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 21
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    }
+  ]
+}

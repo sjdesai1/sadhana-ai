@@ -1,0 +1,14 @@
+# Project dependencies. Grows one milestone at a time; only what's needed so far.
+# Used by: the Docker image and your laptop (uv sync).
+
+# milestone 0: app, config, database
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.3
+sqlalchemy>=2.0,<2.1
+psycopg[binary]>=3.2
+
+# milestone 0: nightly pipeline
+dagster>=1.8
+dagster-webserver>=1.8

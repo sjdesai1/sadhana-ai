@@ -1,0 +1,16 @@
+# Weekly update PRs for GitHub Actions and the base Docker image.
+# Python packages are upgraded deliberately (`make upgrade`, then a reviewed PR).
+# Known vulnerabilities in Python packages are reported by pip-audit in CI.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

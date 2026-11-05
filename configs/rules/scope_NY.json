@@ -1,0 +1,32 @@
+{
+  "state": "NY",
+  "source": "NYSED Office of the Professions; NY Education Law 6605-b, 6606, 6608; 2026 eMedNY dental manual",
+  "roles": {
+    "owner_dentist": {"family": "dentist", "can_diagnose": true},
+    "associate_dentist": {"family": "dentist", "can_diagnose": true},
+    "specialist": {"family": "dentist", "can_diagnose": true},
+    "hygienist": {"family": "hygienist", "can_diagnose": false},
+    "rda": {"family": "assistant", "can_diagnose": false, "licensed": true},
+    "dental_assistant": {"family": "assistant", "can_diagnose": false, "licensed": false},
+    "front_desk": {"family": "admin", "can_diagnose": false}
+  },
+  "rda_allowed_duties": [
+    "patient education", "medical history and vitals", "rubber dam",
+    "select and prefit provisional crowns", "prefit ortho bands", "remove arch wires and ligatures",
+    "matrix bands", "study cast impressions", "remove perio dressings", "remove sutures",
+    "impressions for space maintainers, ortho appliances, occlusal guards", "remove temporary cement",
+    "topical anticariogenic agents", "desensitizing agents", "temporary separators",
+    "ortho ligatures", "temporary restorations", "x-rays"
+  ],
+  "rda_prohibited": ["diagnosis", "surgery", "irreversible procedures", "altering hard or soft tissue", "sealants", "rotary handpiece"],
+  "rda_supervision": "direct_personal",
+  "unlicensed_assistant_allowed": ["chairside four-handed assisting while dentist is at chair", "x-rays", "room and instrument prep", "sterilization"],
+  "unlicensed_assistant_supervision": "dentist_chairside",
+  "hygienist_cert_rules": {
+    "local_anesthesia": "restricted certificate required; dentist must remain in office and examine patient before dismissal",
+    "nitrous": "restricted certificate required; dentist must remain in office"
+  },
+  "sealants": "hygienist or dentist only",
+  "cancellation_fee_exempt_payer_types": ["medicaid"],
+  "medicaid_notes": "fees are payment in full; members cannot be charged for canceled or missed appointments; prior approval for implants, ortho and some major work"
+}

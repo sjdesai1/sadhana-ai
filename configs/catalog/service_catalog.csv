@@ -1,0 +1,40 @@
+code,name,category,benefit_class,visits,chair_min,doctor_min,primary_roles,support_role,required_cert,min_dentist_tier,specialty,equipment,office_fee,lab_cost,materials_cost,freq_limit,elective_cash,lab_days,fee_source
+D0120,Periodic exam,diagnostic,preventive,1,10,10,dentist,none,,any,,,95,0,2,2 per 12 months,0,0,estimate from Manhattan price lists
+D0140,Limited exam emergency,diagnostic,preventive,1,15,15,dentist,rda,,any,,,120,0,2,,0,0,estimate from Manhattan price lists
+D0150,Comprehensive exam new patient,diagnostic,preventive,1,20,20,dentist,rda,,any,,,150,0,3,1 per 36 months,0,0,estimate from Manhattan price lists
+D0180,Comprehensive perio exam,diagnostic,preventive,1,15,15,dentist,none,,any,,,150,0,3,1 per 36 months,0,0,estimate from Manhattan price lists
+D0210,Full mouth x-rays,diagnostic,preventive,1,20,0,hygienist;rda;dental_assistant,none,,any,,,200,0,5,1 per 60 months,0,0,estimate from Manhattan price lists
+D0274,Bitewings four images,diagnostic,preventive,1,10,0,hygienist;rda;dental_assistant,none,,any,,,95,0,2,1 per 12 months,0,0,estimate from Manhattan price lists
+D0330,Panoramic x-ray,diagnostic,preventive,1,10,0,hygienist;rda;dental_assistant,none,,any,,pano,160,0,3,1 per 60 months,0,0,estimate from Manhattan price lists
+D0367,Cone beam CT both jaws,diagnostic,major,1,20,10,dentist,rda,,any,,cbct,450,0,5,,0,0,estimate from Manhattan price lists
+D1110,Adult cleaning,preventive,preventive,1,60,0,hygienist,none,,any,,,210,0,10,2 per 12 months,0,0,Manhattan range 175-250
+D1120,Child cleaning,preventive,preventive,1,45,0,hygienist,none,,any,,,150,0,8,2 per 12 months,0,0,estimate from Manhattan price lists
+D1206,Fluoride varnish,preventive,preventive,1,5,0,hygienist;rda,none,,any,,,65,0,4,2 per 12 months,0,0,estimate; RDA may apply topical anticariogenic agents
+D1351,Sealant per tooth,preventive,preventive,1,10,0,hygienist;dentist,none,,any,,,85,0,6,1 per tooth per 36 months,0,0,estimate; NY assistants cannot place sealants
+D4341,Scaling root planing per quad 4+ teeth,periodontal,basic,1,60,0,hygienist;dentist,none,local_anesthesia,any,,,340,0,20,1 per quad per 24 months,0,0,Manhattan range 260-420 per quad; hygienist needs anesthesia cert
+D4342,Scaling root planing per quad 1-3 teeth,periodontal,basic,1,45,0,hygienist;dentist,none,local_anesthesia,any,,,240,0,15,1 per quad per 24 months,0,0,estimate; hygienist needs anesthesia cert
+D4355,Full mouth debridement,periodontal,basic,1,60,0,hygienist,none,,any,,,250,0,10,1 per 60 months,0,0,estimate from Manhattan price lists
+D4910,Perio maintenance,periodontal,basic,1,60,0,hygienist,none,,any,,,225,0,10,4 per 12 months,0,0,estimate from Manhattan price lists
+D4260,Osseous surgery per quad,periodontal,major,1,90,90,dentist,rda,,senior,perio,,1600,0,60,1 per quad per 36 months,0,0,estimate; usually periodontist
+D2330,Anterior composite one surface,restorative,basic,1,30,30,dentist,rda;dental_assistant,,any,,,280,0,18,,0,0,Manhattan fillings 200-600
+D2391,Posterior composite one surface,restorative,basic,1,30,30,dentist,rda;dental_assistant,,any,,,300,0,18,,0,0,Manhattan fillings 200-600
+D2392,Posterior composite two surfaces,restorative,basic,1,45,45,dentist,rda;dental_assistant,,any,,,380,0,22,,0,0,Manhattan fillings 200-600
+D2393,Posterior composite three surfaces,restorative,basic,1,60,60,dentist,rda;dental_assistant,,any,,,450,0,25,,0,0,Manhattan fillings 200-600
+D2740,Crown ceramic or zirconia,restorative,major,2,120,100,dentist,rda,,any,,scanner,1800,180,40,1 per tooth per 60 months,0,14,Manhattan crowns 1500-2000; domestic lab 200-450 overseas 80-150
+D2950,Core buildup,restorative,major,1,20,20,dentist,rda;dental_assistant,,any,,,450,0,20,1 per tooth per 60 months,0,0,estimate from Manhattan price lists
+D2962,Veneer porcelain,cosmetic,major,2,150,130,dentist,rda,,senior,,scanner,2200,350,40,,1,14,estimate; often cash pay
+D3310,Root canal anterior,endodontic,major,1,60,60,dentist,rda,,any,,,1400,0,60,1 per tooth lifetime,0,0,Smile Lab NYC 1400
+D3320,Root canal premolar,endodontic,major,1,75,75,dentist,rda,,any,,,1600,0,70,1 per tooth lifetime,0,0,Smile Lab NYC 1600
+D3330,Root canal molar,endodontic,major,1,90,90,dentist,rda,,senior,,,1800,0,80,1 per tooth lifetime,0,0,Smile Lab NYC 1800; often referred to endodontist
+D6010,Implant placement,implant,major,1,90,90,dentist,rda,implant_surgery,senior,,cbct,2650,0,400,1 per tooth lifetime,0,0,Smile Lab NYC implant body 2650; fixture parts estimate
+D6057,Custom implant abutment,implant,major,1,30,30,dentist,rda,,any,,scanner,900,0,0,1 per tooth lifetime,0,14,estimate; abutment plus crown 3300 at Smile Lab
+D6065,Implant supported ceramic crown,implant,major,2,60,50,dentist,rda,,any,,scanner,2400,480,30,1 per tooth per 60 months,0,14,lab custom abutment plus zirconia crown roughly 420-585
+D7140,Simple extraction,oral_surgery,basic,1,30,30,dentist,rda;dental_assistant,,any,,,250,0,15,,0,0,estimate from Manhattan price lists
+D7210,Surgical extraction,oral_surgery,basic,1,45,45,dentist,rda,,any,,,450,0,25,,0,0,estimate from Manhattan price lists
+D7240,Impacted tooth full bony,oral_surgery,major,1,60,60,dentist,rda,oral_surgery,senior,,,700,0,35,,0,0,estimate; often oral surgeon
+D9110,Palliative emergency treatment,adjunctive,basic,1,30,30,dentist,rda;dental_assistant,,any,,,175,0,10,,0,0,estimate from Manhattan price lists
+D9230,Nitrous oxide add-on,adjunctive,basic,1,0,0,dentist;hygienist,none,nitrous,any,,nitrous,120,0,15,,0,0,estimate; hygienist needs nitrous cert and dentist in office
+D9310,Consultation,adjunctive,preventive,1,30,30,dentist,none,,any,,,175,0,0,,0,0,estimate from Manhattan price lists
+D9944,Night guard hard,adjunctive,major,2,45,25,dentist,rda,,any,,scanner,700,120,10,1 per 36 months,0,14,estimate; RDA can take occlusal guard impressions
+D9972,In-office whitening per arch,cosmetic,none,1,90,10,dentist;hygienist,rda,,any,,,650,0,60,,1,0,estimate; cash pay
+D8090,Clear aligners comprehensive adult,cosmetic,ortho,8,240,160,dentist,rda,aligner_certified,any,,scanner,6500,1500,50,,1,21,estimate; lab cost depends on aligner brand

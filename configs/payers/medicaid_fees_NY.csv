@@ -1,0 +1,40 @@
+code,fee,covered,source
+D0120,25.25,1,eMedNY 2026 manual
+D0140,14.14,1,eMedNY 2026 manual
+D0150,30.30,1,eMedNY 2026 manual
+D0180,30.30,1,estimate; set to D0150
+D0210,50.50,1,eMedNY 2026 manual
+D0274,24.24,1,eMedNY 2026 manual
+D0330,35.35,1,eMedNY 2026 manual
+D0367,281.79,1,eMedNY 2026 manual; prior approval required
+D1110,45.45,1,eMedNY 2026 manual
+D1120,43.43,1,eMedNY 2026 manual
+D1206,30.30,1,eMedNY 2026 manual; adults only in limited cases
+D1351,35.35,1,eMedNY 2026 manual; ages 5-15
+D4341,110.00,1,estimate
+D4342,80.00,1,estimate
+D4355,75.00,1,estimate
+D4910,60.00,1,estimate
+D4260,0,0,not covered except with implants
+D2330,50.50,1,eMedNY 2026 manual
+D2391,50.50,1,eMedNY 2026 manual
+D2392,67.67,1,eMedNY 2026 manual
+D2393,82.82,1,eMedNY 2026 manual
+D2740,505.00,1,eMedNY 2026 manual; criteria apply
+D2950,150.00,1,estimate
+D2962,0,0,not covered; cosmetic
+D3310,300.00,1,estimate
+D3320,350.00,1,estimate
+D3330,450.00,1,estimate; prior approval
+D6010,0,1,by report; prior approval required
+D6057,0,1,by report; prior approval required
+D6065,0,1,by report; prior approval required
+D7140,55.00,1,estimate
+D7210,100.00,1,estimate
+D7240,200.00,1,estimate
+D9110,40.00,1,estimate
+D9230,25.00,1,estimate
+D9310,30.00,1,estimate
+D9944,200.00,1,estimate
+D9972,0,0,not covered; cosmetic
+D8090,0,0,adult ortho not covered
