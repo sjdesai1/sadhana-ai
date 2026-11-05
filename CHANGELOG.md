@@ -5,6 +5,10 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+### Fixed
+- Docker image build: copy source before installing, since dependencies are read from requirements.txt
+- Dagster test uses resolve_job_def instead of the deprecated job lookup
+
 ## [0.1.0] - Milestone 0 and 1
 
 ### Added

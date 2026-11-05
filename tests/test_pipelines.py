@@ -4,7 +4,7 @@ from sadhana.pipelines.definitions import defs, economics_tables
 
 
 def test_definitions_load() -> None:
-    assert defs.get_job_def("nightly") is not None
+    assert defs.resolve_job_def("nightly") is not None
 
 
 def test_economics_asset_materializes() -> None:
