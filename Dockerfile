@@ -9,13 +9,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# dependencies first, so code changes don't reinstall them
-COPY pyproject.toml requirements.txt uv.lock* README.md ./
-RUN uv sync --no-install-project
-
+# dependencies come from requirements.txt, so uv needs the source to build project metadata
+COPY pyproject.toml requirements.txt uv.lock README.md ./
 COPY src ./src
 COPY configs ./configs
-RUN uv sync
+RUN uv sync --locked --no-editable
 
 ENV PATH="/app/.venv/bin:$PATH"
 
