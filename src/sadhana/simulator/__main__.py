@@ -12,6 +12,7 @@ from collections import Counter
 from pathlib import Path
 
 from sadhana.config import settings
+from sadhana.simulator import charts
 from sadhana.simulator.population import generate, write
 
 
@@ -41,6 +42,16 @@ def main() -> None:
         print(
             "  languages: "
             + ", ".join(f"{k} {v / n:.0%}" for k, v in Counter(p.language for p in patients).most_common(5))
+        )
+
+        teeth, conds, perio, plan = charts.generate(patients, truths, seed=args.seed)
+        charts.write(teeth, conds, perio, plan, out)
+        adults = [p for p in patients if p.age >= 20]
+        decay = {c.patient_id for c in conds if c.condition == "caries"}
+        decay_share = sum(p.patient_id in decay for p in adults) / len(adults)
+        print(f"  charts: {len(teeth)} teeth, adults with active decay {decay_share:.0%}")
+        print(
+            f"  treatment plan: {len(plan)} proposed items for {len({x.patient_id for x in plan}) / n:.0%} of patients"
         )
 
 
