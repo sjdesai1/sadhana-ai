@@ -30,6 +30,7 @@ Schedule and revenue recovery for dental practices. Finds the money already in a
 
 ## Workflow
 
+- Start with `docs/STATUS.md`: where the build stands, what is next, latest benchmarks
 - Branch off main, open a PR for every change
 - Run `make check` before every push; CI runs the same plus compose validation, pyright, pip-audit and a Docker build
 - Merge to main publishes a versioned image to GitHub Container Registry
