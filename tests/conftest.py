@@ -20,3 +20,17 @@ def solo() -> OfficeInputs:
 @pytest.fixture(scope="session")
 def group() -> OfficeInputs:
     return _load("group_queens")
+
+
+@pytest.fixture(scope="session")
+def solo_sim():
+    from sadhana.simulator.build import simulate
+
+    return simulate("solo_manhattan", CONFIGS, seed=42)
+
+
+@pytest.fixture(scope="session")
+def group_sim():
+    from sadhana.simulator.build import simulate
+
+    return simulate("group_queens", CONFIGS, seed=42)

@@ -9,8 +9,8 @@ Built in small PRs:
 | 1 Population | Patients, households, ZIP and income tier, language, insurance, consent, hidden traits | Done |
 | 2 Dental charts | Teeth by age, existing work, active problems, gum disease, treatment plans | Done |
 | 3a Clock and hygiene history | Day-by-day clock: hygiene schedule, recall, no-shows, cancellations, seasonality, new and former patients | Done |
-| 3b Treatment history | Doctor and specialist schedule, plan items scheduled / completed / declined, new findings, emergencies | Next |
-| 4 Money | Claims, benefits used, patient portions, balances, year-end resets | |
+| 3b Treatment history | Doctor and specialist schedule, plan items scheduled / completed / declined, new findings, emergencies | Done |
+| 4 Money | Claims, benefits used, patient portions, balances, year-end resets | Next |
 | 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; checks of the full multi-year run | |
 
 ## Part 1: Population
@@ -112,3 +112,46 @@ Checks against real-world benchmarks (seed 42):
 
 Inactive patients (seen once, then nothing for 18+ months) are the reactivation pool; overdue active patients are
 the recall gap. Both are worked by the product, and both are graded against the hidden truth.
+
+## Part 3b: Treatment history
+
+Same clock, now with the doctor and specialist columns. `make sim` also writes `procedures.csv` (every completed
+procedure, the production ledger) and rewrites `treatment_plan.csv` and `conditions.csv` with what happened.
+Code: `schedule.py` (calendar), `treatment.py` (treatment), `history.py` (the clock), `build.py` (one call
+that builds a whole office).
+
+| File | What changed |
+| --- | --- |
+| treatment_plan.csv | each item has a plan id, date diagnosed, status (proposed, accepted, scheduled, completed, declined, referred), status date, appointment, times presented |
+| conditions.csv | date found and date treated; problems found at later exams are added |
+| procedures.csv | one row per completed procedure: date, provider, code, tooth, plan item |
+| appointments.csv | doctor, specialist, deep cleaning, follow-up and emergency visits alongside hygiene |
+
+How it works:
+- Exams: the chart's diagnosed problems are presented at the first exam in the window. Later exams find problems
+  missed before, new decay, old fillings breaking down and gum disease starting
+- Decisions per problem group (one tooth, all gum quadrants, a night guard, whitening): accepted, declined, or left
+  for later. Patients weigh priority, what they pay after insurance (PPO coverage, Medicaid covered codes, cash
+  discount), trust, financing, cosmetic interest and the season: insured patients say yes more in the fall to use
+  benefits, less in January when deductibles reset. Each time an item is presented again, the odds drop
+- Routing: deep cleanings with a hygienist who holds the anesthesia cert, root canals and gum surgery with the
+  visiting specialist when there is one, everything else with a dentist allowed to do it (junior associates do not
+  do molar root canals, implants or impactions). Work the office cannot do is referred out (the solo office has no
+  cone beam CT, so implants are referred)
+- Sequencing: build-up and crown after the root canal, implant crown at least 3 months after the implant, seat
+  visits after the lab, aligner check-ins every 6 weeks. Waits survive rebooking
+- Missed treatment visits drop the work back to accepted, not scheduled. When the first opening is a month out,
+  some patients say "I'll call" and never do
+- Emergencies: untreated deep decay, infections and cracks start hurting, and some patients break a tooth or lose a
+  filling. They get a doctor slot within 3 days or go elsewhere. The tooth's treatment is presented with urgency,
+  and some lapsed patients book a cleaning again
+- Deep cleanings move patients to 3-month perio maintenance
+
+Checks against real-world benchmarks (seed 42):
+
+| Metric | Solo Manhattan | Group Queens | Benchmark |
+| --- | --- | --- | --- |
+| Doctor chairs full, counting exam time | 67% | 63% | 65-85%; open doctor time is part of what the product fills |
+| Urgent work done vs needed vs elective | highest, middle, lowest | same | case acceptance falls with priority and price |
+| Unscheduled treatment (accepted or proposed, not done) | about $1.0M, 26% of diagnosed | about $3.9M, 39% | most offices hold $500k-$1M+ per dentist |
+| Emergencies seen | about 7 a month | about 25 a month | several a week per dentist |

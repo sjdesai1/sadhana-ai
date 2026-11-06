@@ -16,6 +16,10 @@ each minor version is a finished milestone.
   appointments in real provider slots around hours, lunch and holidays; recall with pre-booking, late returns and
   lapses; no-shows, late and early cancels; holiday, summer, weather and back-to-school seasonality; the office's
   existing reminders as the baseline; future bookings past today
+- Simulator, part 3b: treatment history. Exams that present the plan and find new problems; accept, decline or
+  wait decisions driven by priority, out-of-pocket cost, trust, financing, cosmetic interest and season; doctor,
+  hygienist and visiting specialist routing by license and tier; referrals for work the office cannot do; root
+  canal, implant, lab and aligner sequencing; emergencies; procedures ledger; one-call `build.simulate`
 
 ### Fixed
 - Docker image build: copy source before installing, since dependencies are read from requirements.txt

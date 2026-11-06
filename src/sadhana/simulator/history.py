@@ -1,16 +1,18 @@
-"""Simulator part 3a: the clock.
+"""Simulator part 3: the clock.
 
-Plays out three years of the office's hygiene schedule one day at a time, ending the day before SIM_TODAY:
+Plays out three years of the office one day at a time, ending the day before SIM_TODAY:
 - every patient has a join date; some joined during the window (new patients), some left (former patients)
-- visits are booked into real provider time slots: office hours, lunch, turnover, holidays, preferred times
+- visits are booked into real provider time slots: office hours, lunch, turnover, holidays, preferred times,
+  provider speed, and never two places at once for the same patient
 - each visit is kept, a no-show, a late cancel (inside 24 hours) or an early cancel that frees the slot
 - seasonality: holiday weeks, summer Fridays, bad-weather days and storm closures, December slowdown,
   summer vacations, back-to-school for kids, year-end rush to use insurance benefits
 - what the office already does today: basic reminder texts, booking the next cleaning at checkout and
   calling no-shows to rebook. Sadhana is measured against this baseline, not against nothing.
+- treatment (treatment.py): exams, findings, plan decisions, doctor and specialist visits, emergencies
 
-Observed: appointments.csv, patient_history.csv. Hidden: appointment_truth.csv, flow_truth.csv.
-Treatment visits, specialists and emergencies come in part 3b.
+Observed: appointments.csv, procedures.csv, patient_history.csv, treatment_plan.csv.
+Hidden: appointment_truth.csv, flow_truth.csv, conditions.csv.
 """
 
 from __future__ import annotations
@@ -19,51 +21,37 @@ import csv
 import heapq
 import json
 import random
-from bisect import insort
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from sadhana.simulator.charts import Perio
+from sadhana.simulator.charts import Condition, Perio, PlanItem, Tooth
 from sadhana.simulator.population import SIM_TODAY, Patient, Truth, generate
+from sadhana.simulator.schedule import (
+    DAYS,
+    Appointment,
+    AppointmentTruth,
+    Calendar,
+    Procedure,
+    add_months,
+    age_at,
+    hhmm,
+    holiday_week,
+    holidays,
+    to_min,
+    weather,
+)
+from sadhana.simulator.treatment import TreatmentMixin
+
+__all__ = ["DAYS", "holiday_week", "holidays", "run", "former_patients", "overdue_share", "utilization", "write"]
 
 Row = dict[str, Any]
-DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-WINDOWS = {
-    "early_morning": (0, 600),
-    "midday": (600, 900),
-    "evening": (960, 1440),
-    "after_school": (900, 1440),
-    "saturday": (0, 1440),
-    "any": (0, 1440),
-}
 NO_ANNUAL_MAX = {"Cash", "NY Medicaid"}
-# event order inside one day: people leave, early cancels free slots, visits happen, then new bookings
-LEAVE, CANCEL, VISIT, REQUEST = 0, 1, 2, 3
-
-
-@dataclass
-class Appointment:
-    appt_id: str
-    patient_id: str
-    provider_id: str
-    column: str  # hygiene (doctor and specialist columns come in part 3b)
-    date: str
-    start: str
-    end: str
-    kind: str  # new_patient, recall_adult, recall_child, perio_maintenance
-    codes: str
-    booked_on: str
-    status: str  # scheduled, completed, no_show, late_cancel, cancelled
-    status_on: str
-    rebook_of: str
-
-
-@dataclass
-class AppointmentTruth:
-    appt_id: str
-    cause: str  # why it did not happen: patient, weather, holiday_week, summer_friday, office_closed, left_practice
+HYGIENE_KINDS = {"new_patient", "recall_adult", "recall_child", "perio_maintenance"}
+TREATMENT_KINDS = {"srp", "treatment", "followup"}
+# event order inside one day: people leave, early cancels free slots, pain starts, visits happen, then bookings
+LEAVE, CANCEL, PAIN, VISIT, REQUEST = 0, 1, 2, 3, 4
 
 
 @dataclass
@@ -71,7 +59,9 @@ class PatientHistory:
     patient_id: str
     first_visit: str
     last_visit: str
+    last_cleaning: str
     next_appointment: str
+    next_cleaning: str
     completed_visits: int
     no_shows: int
     late_cancels: int
@@ -85,7 +75,8 @@ class FlowTruth:
     left_on: str
     left_reason: str  # moved, switched_dentist, insurance_change, unhappy, deceased, ""
     office_knows: bool
-    lapsed_on: str  # stopped booking without telling anyone
+    lapsed_on: str  # stopped booking cleanings without telling anyone
+    emergencies_turned_away: int
 
 
 @dataclass
@@ -100,177 +91,23 @@ class _State:
     office_knows: bool = False
     lapsed_on: date | None = None
     first_visit: date | None = None
-    last_visit: date | None = None
+    last_any: date | None = None
+    last_visit: date | None = None  # last cleaning
+    last_exam: date | None = None
     last_bitewings: date | None = None
     last_full_xrays: date | None = None
-    future_appt: str = ""
+    future_appt: str = ""  # next cleaning on the books
+    busy: dict[date, list[tuple[int, int]]] = field(default_factory=dict)
+    presented: bool = False
     completed: int = 0
     no_shows: int = 0
     late_cancels: int = 0
+    turned_away: int = 0
     left: bool = False
 
 
 def load_clock(configs_dir: Path) -> Row:
     return json.loads((configs_dir / "simulator" / "clock.json").read_text())
-
-
-def _min(hhmm: str) -> int:
-    h, m = hhmm.split(":")
-    return int(h) * 60 + int(m)
-
-
-def _hhmm(m: int) -> str:
-    return f"{m // 60:02d}:{m % 60:02d}"
-
-
-def _add_months(d: date, months: int) -> date:
-    y, m = divmod(d.month - 1 + months, 12)
-    return date(d.year + y, m + 1, min(d.day, 28))
-
-
-def _age_at(birth: date, d: date) -> int:
-    return d.year - birth.year - ((d.month, d.day) < (birth.month, birth.day))
-
-
-def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
-    if n > 0:
-        first = date(year, month, 1)
-        return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (n - 1))
-    last = date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
-    return last - timedelta(days=(last.weekday() - weekday) % 7)
-
-
-def holidays(years: range) -> set[date]:
-    """Days a typical NYC dental office is closed."""
-    out: set[date] = set()
-    for y in years:
-        thanksgiving = _nth_weekday(y, 11, 3, 4)
-        out |= {
-            date(y, 1, 1),
-            _nth_weekday(y, 5, 0, -1),  # Memorial Day
-            date(y, 7, 4),
-            _nth_weekday(y, 9, 0, 1),  # Labor Day
-            thanksgiving,
-            thanksgiving + timedelta(days=1),
-            date(y, 12, 24),
-            date(y, 12, 25),
-        }
-    return out
-
-
-def holiday_week(d: date) -> bool:
-    thanksgiving = _nth_weekday(d.year, 11, 3, 4)
-    return (
-        (d.month == 12 and d.day >= 20)
-        or (d.month == 1 and d.day <= 2)
-        or (d.month == 7 and d.day <= 7)
-        or abs((d - thanksgiving).days) <= 3
-    )
-
-
-def _weather(rng: random.Random, start: date, end: date, season: Row) -> tuple[set[date], set[date]]:
-    """Bad-weather days (more no-shows) and storm days when the office closes."""
-    bad: set[date] = set()
-    closed: set[date] = set()
-    for y in range(start.year - 1, end.year + 1):
-        winter = [date(y, 12, 1) + timedelta(days=i) for i in range(120)]
-        summer = [date(y, 6, 1) + timedelta(days=i) for i in range(92)]
-        picks = rng.sample(winter, season["bad_weather_days_per_winter"] + season["office_closed_storms_per_winter"])
-        closed |= set(picks[: season["office_closed_storms_per_winter"]])
-        bad |= set(picks[season["office_closed_storms_per_winter"] :])
-        bad |= set(rng.sample(summer, season["storm_days_per_summer"]))
-    return bad, closed
-
-
-class Calendar:
-    """Hygiene columns: who works which day, and which minutes are already booked."""
-
-    def __init__(self, office: Row, closed: set[date]) -> None:
-        self.office = office
-        self.closed = closed
-        self.hygienists = [s for s in office["staff"] if s["role"] == "hygienist"]
-        lunch = office.get("lunch")
-        self.lunch = (_min(lunch[0]), _min(lunch[1])) if lunch else None
-        self.turnover = int(office.get("turnover_min", 10))
-        self.booked: dict[tuple[date, str], list[tuple[int, int]]] = {}
-        self.free_min: dict[tuple[date, str], int] = {}
-        self._day: dict[date, tuple[tuple[int, int] | None, list[str]]] = {}
-
-    def _info(self, d: date) -> tuple[tuple[int, int] | None, list[str]]:
-        if d not in self._day:
-            h = self.office["hours"].get(DAYS[d.weekday()])
-            hrs = None if d in self.closed or not h else (_min(h[0]), _min(h[1]))
-            provs = [s["id"] for s in self.hygienists if DAYS[d.weekday()] in s["days"]] if hrs else []
-            self._day[d] = (hrs, provs)
-        return self._day[d]
-
-    def hours(self, d: date) -> tuple[int, int] | None:
-        return self._info(d)[0]
-
-    def providers(self, d: date) -> list[str]:
-        return self._info(d)[1]
-
-    def capacity(self, d: date) -> int:
-        hrs, provs = self._info(d)
-        if not hrs:
-            return 0
-        lunch = self.lunch[1] - self.lunch[0] if self.lunch else 0
-        return (hrs[1] - hrs[0] - lunch) * len(provs)
-
-    def _busy(self, d: date, pid: str) -> list[tuple[int, int]]:
-        key = (d, pid)
-        if key not in self.booked:
-            self.booked[key] = [self.lunch] if self.lunch else []
-            self.free_min[key] = self.capacity(d) // max(1, len(self.providers(d)))
-        return self.booked[key]
-
-    def _fit(self, d: date, pid: str, minutes: int, window: tuple[int, int]) -> int | None:
-        hrs = self.hours(d)
-        if hrs is None:
-            return None
-        busy = self._busy(d, pid)
-        if self.free_min[(d, pid)] < minutes:
-            return None
-        open_, close = hrs
-        t = max(open_, window[0])
-        t += -t % 10
-        for b_start, b_end in busy:
-            if t + minutes + self.turnover <= b_start:
-                break
-            t = max(t, b_end)
-        if t + minutes <= close and t < window[1]:
-            return t
-        return None
-
-    def find(self, earliest: date, minutes: int, pref: str) -> tuple[date, str, int] | None:
-        passes = [True, False] if pref != "any" else [False]
-        for strict in passes:
-            for i in range(35 if strict else 180):
-                d = earliest + timedelta(days=i)
-                hrs, provs = self._info(d)
-                if hrs is None:
-                    continue
-                window = WINDOWS["any"]
-                if strict:
-                    if pref == "saturday" and d.weekday() != 5:
-                        continue
-                    if not (pref == "after_school" and d.weekday() == 5):
-                        window = WINDOWS.get(pref, WINDOWS["any"])
-                    if window[0] >= hrs[1] - minutes:
-                        continue
-                for pid in sorted(provs, key=lambda x: (-self.free_min.get((d, x), 10_000), x)):
-                    t = self._fit(d, pid, minutes, window)
-                    if t is not None:
-                        return d, pid, t
-        return None
-
-    def book(self, d: date, pid: str, start: int, minutes: int) -> None:
-        insort(self._busy(d, pid), (start, start + minutes + self.turnover))
-        self.free_min[(d, pid)] -= minutes + self.turnover
-
-    def free(self, d: date, pid: str, start: int, minutes: int) -> None:
-        self.booked[(d, pid)].remove((start, start + minutes + self.turnover))
-        self.free_min[(d, pid)] += minutes + self.turnover
 
 
 def former_patients(
@@ -308,87 +145,190 @@ def _window_days(start: date, end: date, month_w: Row, recency: float) -> tuple[
     return days, cum
 
 
-def run(
-    office: Row,
-    patients: list[Patient],
-    truths: list[Truth],
-    perio: list[Perio],
-    configs_dir: Path,
-    former_ids: set[str],
-    seed: int = 42,
-) -> tuple[list[Appointment], list[AppointmentTruth], list[PatientHistory], list[FlowTruth]]:
-    clock = load_clock(configs_dir)
-    flow, recall, visits, out_cfg, season = (
-        clock[k] for k in ("patient_flow", "recall", "visits", "outcomes", "seasonality")
-    )
-    rng = random.Random(f"history-{office['office_id']}-{seed}")
-    start = date(SIM_TODAY.year - clock["history_years"], SIM_TODAY.month, SIM_TODAY.day)
-    last_bookable = SIM_TODAY + timedelta(days=clock["future_booking_days"])
-    bad_days, storm_closed = _weather(rng, start, last_bookable, season)
-    cal = Calendar(office, holidays(range(start.year, last_bookable.year + 1)))
-    maintenance = {x.patient_id: x.maintenance for x in perio}
-    by_id = {p.patient_id: p for p in patients}
+class Practice(TreatmentMixin):
+    """One office, played forward day by day."""
 
-    def reached(p: Patient) -> bool:
-        contact = by_id.get(p.guardian_id, p) if p.age < 18 else p
-        return contact.sms_consent or contact.email_on_file
+    def __init__(
+        self,
+        office: Row,
+        patients: list[Patient],
+        truths: list[Truth],
+        teeth: list[Tooth],
+        conds: list[Condition],
+        perio: list[Perio],
+        plan: list[PlanItem],
+        configs_dir: Path,
+        former_ids: set[str],
+        seed: int,
+    ) -> None:
+        clock = load_clock(configs_dir)
+        self.office = office
+        self.flow, self.recall, self.visits, self.out_cfg, self.season, self.tx = (
+            clock[k] for k in ("patient_flow", "recall", "visits", "outcomes", "seasonality", "treatment")
+        )
+        self.rng = random.Random(f"history-{office['office_id']}-{seed}")
+        self.start = date(SIM_TODAY.year - clock["history_years"], SIM_TODAY.month, SIM_TODAY.day)
+        self.last_bookable = SIM_TODAY + timedelta(days=clock["future_booking_days"])
+        self.bad_days, self.storm_closed = weather(self.rng, self.start, self.last_bookable, self.season)
+        self.cal = Calendar(office, holidays(range(self.start.year, self.last_bookable.year + 1)))
+        self.events: list[tuple[date, int, int, str, Row]] = []
+        self.seq = 0
+        self.appts: dict[str, Appointment] = {}
+        self.causes: dict[str, str] = {}
+        self.payload_of: dict[str, Row] = {}
+        self.procedures: list[Procedure] = []
+        self.state: dict[str, _State] = {}
+        self._setup_flow(patients, truths, perio, former_ids)
+        self.setup_treatment(teeth, conds, perio, plan, configs_dir)
+        self._setup_start()
 
-    # 1. join and leave dates, by household
-    state: dict[str, _State] = {}
-    houses: dict[str, list[tuple[Patient, Truth]]] = {}
-    for p, t in zip(patients, truths, strict=True):
-        houses.setdefault(p.household_id, []).append((p, t))
-    current_days, current_cum = _window_days(start, SIM_TODAY, flow["new_patient_month_weights"], 0.5)
-    former_days, former_cum = _window_days(
-        start, SIM_TODAY - timedelta(days=150), flow["new_patient_month_weights"], 0.0
-    )
-    reasons = flow["leave_reasons"]
-    for members in houses.values():
-        former = members[0][0].patient_id in former_ids
-        share = flow["former_joined_before_window"] if former else 1 - flow["joined_in_window_share"]
-        if rng.random() < share:
-            joined = start - timedelta(days=rng.randint(180, 15 * 365))
-        elif former:
-            joined = rng.choices(former_days, cum_weights=former_cum)[0]
+    # setup
+
+    def _setup_flow(self, patients: list[Patient], truths: list[Truth], perio: list[Perio], former_ids: set[str]):
+        """Join and leave dates, by household."""
+        flow, rng, start = self.flow, self.rng, self.start
+        maintenance = {x.patient_id: x.maintenance for x in perio}
+        by_id = {p.patient_id: p for p in patients}
+
+        def reached(p: Patient) -> bool:
+            contact = by_id.get(p.guardian_id, p) if p.age < 18 else p
+            return contact.sms_consent or contact.email_on_file
+
+        houses: dict[str, list[tuple[Patient, Truth]]] = {}
+        for p, t in zip(patients, truths, strict=True):
+            houses.setdefault(p.household_id, []).append((p, t))
+        weights = flow["new_patient_month_weights"]
+        current_days, current_cum = _window_days(start, SIM_TODAY, weights, 0.5)
+        former_days, former_cum = _window_days(start, SIM_TODAY - timedelta(days=150), weights, 0.0)
+        reasons = flow["leave_reasons"]
+        for members in houses.values():
+            former = members[0][0].patient_id in former_ids
+            share = flow["former_joined_before_window"] if former else 1 - flow["joined_in_window_share"]
+            if rng.random() < share:
+                joined = start - timedelta(days=rng.randint(180, 15 * 365))
+            elif former:
+                joined = rng.choices(former_days, cum_weights=former_cum)[0]
+            else:
+                joined = rng.choices(current_days, cum_weights=current_cum)[0]
+            left_on, reason = None, ""
+            if former:
+                lo = max(joined, start) + timedelta(days=60)
+                left_on = lo + timedelta(days=rng.randint(0, max(0, (SIM_TODAY - lo).days - 14)))
+                reason = rng.choices(list(reasons), weights=list(reasons.values()))[0]
+            for p, t in members:
+                r = "deceased" if former and p.age >= 78 and rng.random() < 0.4 else reason
+                knows = bool(r) and rng.random() < flow["office_learns_reason"][r]
+                self.state[p.patient_id] = _State(
+                    p, t, reached(p), maintenance.get(p.patient_id, False), joined, left_on, r, knows
+                )
+
+    def _setup_start(self) -> None:
+        """Established patients are mid-cycle at the start of the window; new patients call in when they join."""
+        recall, rng, start = self.recall, self.rng, self.start
+        first_age = self.flow["first_visit_age"]
+        for pid, st in self.state.items():
+            c = st.truth.recall_compliance
+            birth = date.fromisoformat(st.patient.birth_date)
+            if st.joined_on >= start or age_at(birth, start) < first_age:
+                self.push(max(st.joined_on, start), REQUEST, pid, {"new": True})
+            elif rng.random() < 0.15 * (1 - c):
+                st.lapsed_on = start - timedelta(days=rng.randint(30, 700))
+                st.last_visit = st.last_any = st.lapsed_on - timedelta(days=180)
+            else:
+                cycle = 90 if st.maintenance else 182
+                st.last_visit = st.last_any = start - timedelta(days=rng.randint(0, cycle))
+                st.last_bitewings = st.last_visit - timedelta(days=rng.choice([0, 182]))
+                st.last_full_xrays = st.last_visit - timedelta(days=rng.randint(0, 5 * 365))
+                months = recall["perio_maintenance_months"] if st.maintenance else recall["months"]
+                due = add_months(st.last_visit, months)
+                if rng.random() < recall["preappoint_base"] + recall["preappoint_per_compliance"] * c:
+                    self.push(start, REQUEST, pid, {"earliest": max(due, start)})
+                else:
+                    self.self_book(st, due, start - timedelta(days=1))
+            if st.left_on:
+                self.push(st.left_on, LEAVE, pid)
+        d = date(start.year, start.month, 1)
+        while d < SIM_TODAY:
+            self.push(d, PAIN, "pain")
+            d = add_months(d, 1)
+
+    # events and bookings
+
+    def push(self, d: date, prio: int, key: str, payload: Row | None = None) -> None:
+        self.seq += 1
+        heapq.heappush(self.events, (d, prio, self.seq, key, payload or {}))
+
+    def book(self, st: _State, d: date, slot: tuple, kind: str, codes: str, column: str, payload: Row) -> Appointment:
+        day, prov, t, length = slot
+        self.cal.book(day, prov, t, length)
+        st.busy.setdefault(day, []).append((t, t + length))
+        aid = f"A{len(self.appts) + 1:07d}"
+        a = Appointment(
+            aid,
+            st.patient.patient_id,
+            prov,
+            column,
+            day.isoformat(),
+            hhmm(t),
+            hhmm(t + length),
+            kind,
+            codes,
+            d.isoformat(),
+            "scheduled",
+            "",
+            payload.get("rebook_of", ""),
+        )
+        self.appts[aid] = a
+        self.payload_of[aid] = {k: v for k, v in payload.items() if k not in ("earliest", "rebook_of")}
+        lead = (day - d).days
+        out = self.out_cfg
+        p_early = out["early_cancel_base"] + out["early_cancel_per_noncompliance"] * (1 - st.truth.recall_compliance)
+        if lead > out["booked_far_out_days"]:
+            p_early += out["early_cancel_far_out_extra"]
+        if kind != "emergency" and lead >= 3 and self.rng.random() < p_early:
+            self.push(d + timedelta(days=self.rng.randint(1, lead - 2)), CANCEL, aid)
+        self.push(day, VISIT, aid)
+        return a
+
+    def cancel(self, a: Appointment, d: date, status: str, cause: str) -> None:
+        a.status, a.status_on = status, d.isoformat()
+        self.causes[a.appt_id] = cause
+        st = self.state[a.patient_id]
+        if st.future_appt == a.appt_id:
+            st.future_appt = ""
+        if status == "cancelled":
+            day, start, end = date.fromisoformat(a.date), to_min(a.start), to_min(a.end)
+            self.cal.free(day, a.provider_id, start, end - start)
+            st.busy[day].remove((start, end))
+
+    def rebook_or_drift(self, a: Appointment, d: date, p_rebook: float, rebook_on: date) -> None:
+        """After a missed visit: the office gets them back on the books, or they drift."""
+        st = self.state[a.patient_id]
+        again = self.rng.random() < p_rebook
+        if a.kind in HYGIENE_KINDS:
+            if again:
+                self.push(rebook_on, REQUEST, a.patient_id, {"rebook_of": a.appt_id})
+            else:
+                self.self_book(st, date.fromisoformat(a.date), d)
+        elif a.kind == "emergency":
+            return
         else:
-            joined = rng.choices(current_days, cum_weights=current_cum)[0]
-        left_on, reason = None, ""
-        if former:
-            lo = max(joined, start) + timedelta(days=60)
-            left_on = lo + timedelta(days=rng.randint(0, max(0, (SIM_TODAY - lo).days - 14)))
-            reason = rng.choices(list(reasons), weights=list(reasons.values()))[0]
-        for p, t in members:
-            r = "deceased" if former and p.age >= 78 and rng.random() < 0.4 else reason
-            state[p.patient_id] = _State(
-                p,
-                t,
-                reached(p),
-                maintenance.get(p.patient_id, False),
-                joined,
-                left_on,
-                r,
-                bool(r) and rng.random() < flow["office_learns_reason"][r],
-            )
+            self.treatment_missed(a, d, rebook_on if again else None)
 
-    events: list[tuple[date, int, int, str, Row]] = []
-    seq = 0
+    # hygiene
 
-    def push(d: date, prio: int, key: str, payload: Row | None = None) -> None:
-        nonlocal seq
-        seq += 1
-        heapq.heappush(events, (d, prio, seq, key, payload or {}))
-
-    def kind_for(st: _State, d: date, new: bool) -> str:
+    def kind_for(self, st: _State, d: date, new: bool) -> str:
         if new:
             return "new_patient"
-        if st.maintenance and _age_at(date.fromisoformat(st.patient.birth_date), d) >= 18:
+        age = age_at(date.fromisoformat(st.patient.birth_date), d)
+        if st.maintenance and age >= 18:
             return "perio_maintenance"
-        child = _age_at(date.fromisoformat(st.patient.birth_date), d) < visits["child_cleaning_under"]
-        return "recall_child" if child else "recall_adult"
+        return "recall_child" if age < self.visits["child_cleaning_under"] else "recall_adult"
 
-    def codes_for(st: _State, kind: str, d: date) -> str:
+    def codes_for(self, st: _State, kind: str, d: date) -> str:
+        visits = self.visits
+        child = age_at(date.fromisoformat(st.patient.birth_date), d) < visits["child_cleaning_under"]
         if kind == "new_patient":
-            child = _age_at(date.fromisoformat(st.patient.birth_date), d) < visits["child_cleaning_under"]
             return "D0150 D0210 " + ("D1120 D1206" if child else "D1110")
         codes = ["D0120", {"recall_adult": "D1110", "recall_child": "D1120", "perio_maintenance": "D4910"}[kind]]
         if not st.last_bitewings or (d - st.last_bitewings).days >= 30 * visits["bitewings_every_months"]:
@@ -399,8 +339,9 @@ def run(
             codes.append("D1206")
         return " ".join(codes)
 
-    def self_book(st: _State, due: date, today: date) -> None:
+    def self_book(self, st: _State, due: date, today: date) -> None:
         """Patient books on their own, late or never; the office's reminder nudges a little."""
+        recall, season, rng = self.recall, self.season, self.rng
         c = st.truth.recall_compliance
         p_lapse = recall["lapse_base"] + recall["lapse_per_noncompliance_sq"] * (1 - c) ** 2
         mean_delay = recall["delay_base_days"] + recall["delay_per_noncompliance_days"] * (1 - c)
@@ -423,82 +364,46 @@ def run(
             pulled = date(req.year - 1, 12, rng.randint(1, 18))
             if st.last_visit is None or (pulled - st.last_visit).days >= 150:
                 req = pulled
-        push(max(req, today + timedelta(days=1)), REQUEST, st.patient.patient_id)
+        self.push(max(req, today + timedelta(days=1)), REQUEST, st.patient.patient_id)
 
-    def next_recall(st: _State, d: date) -> None:
+    def next_recall(self, st: _State, d: date) -> None:
+        recall, rng = self.recall, self.rng
         months = recall["perio_maintenance_months"] if st.maintenance else recall["months"]
-        due = _add_months(d, months)
-        c = st.truth.recall_compliance
+        due = add_months(d, months)
         earliest = due - timedelta(days=rng.randint(0, 10))
-        kid = st.patient.age < 18 and _age_at(date.fromisoformat(st.patient.birth_date), due) < 18
-        if kid and due.month in (6, 7, 9) and rng.random() < season["back_to_school_pull_child"]:
+        kid = age_at(date.fromisoformat(st.patient.birth_date), due) < 18
+        if kid and due.month in (6, 7, 9) and rng.random() < self.season["back_to_school_pull_child"]:
             earliest = max(date(due.year, 8, rng.randint(1, 20)), d + timedelta(days=120))
-        if rng.random() < recall["preappoint_base"] + recall["preappoint_per_compliance"] * c:
-            push(d, REQUEST, st.patient.patient_id, {"earliest": earliest})
+        if rng.random() < recall["preappoint_base"] + recall["preappoint_per_compliance"] * st.truth.recall_compliance:
+            self.push(d, REQUEST, st.patient.patient_id, {"earliest": earliest})
         else:
-            self_book(st, due, d)
+            self.self_book(st, due, d)
 
-    # 2. starting point: established patients are mid-cycle at the start of the window, new patients call in
-    first_age = flow["first_visit_age"]
-    for pid, st in state.items():
-        c = st.truth.recall_compliance
-        birth = date.fromisoformat(st.patient.birth_date)
-        if st.joined_on >= start or _age_at(birth, start) < first_age:
-            push(max(st.joined_on, start), REQUEST, pid, {"new": True})
-        elif rng.random() < 0.15 * (1 - c):
-            st.lapsed_on = start - timedelta(days=rng.randint(30, 700))
-            st.last_visit = st.lapsed_on - timedelta(days=180)
-        else:
-            cycle = 90 if st.maintenance else 182
-            st.last_visit = start - timedelta(days=rng.randint(0, cycle))
-            st.last_bitewings = st.last_visit - timedelta(days=rng.choice([0, 182]))
-            st.last_full_xrays = st.last_visit - timedelta(days=rng.randint(0, 5 * 365))
-            months = recall["perio_maintenance_months"] if st.maintenance else recall["months"]
-            due = _add_months(st.last_visit, months)
-            if rng.random() < recall["preappoint_base"] + recall["preappoint_per_compliance"] * c:
-                push(start, REQUEST, pid, {"earliest": max(due, start)})
-            else:
-                self_book(st, due, start - timedelta(days=1))
-        if st.left_on:
-            push(st.left_on, LEAVE, pid)
-
-    appts: dict[str, Appointment] = {}
-    causes: dict[str, str] = {}
-    minutes_of: dict[str, int] = {}
-
-    def cancel(a: Appointment, d: date, status: str, cause: str) -> None:
-        a.status, a.status_on = status, d.isoformat()
-        causes[a.appt_id] = cause
-        state[a.patient_id].future_appt = ""
-        if status == "cancelled":
-            cal.free(date.fromisoformat(a.date), a.provider_id, _min(a.start), minutes_of[a.appt_id])
-
-    def request(d: date, pid: str, payload: Row) -> None:
-        st = state[pid]
+    def request_hygiene(self, d: date, pid: str, payload: Row) -> None:
+        st, rng, recall = self.state[pid], self.rng, self.recall
         if st.left or st.future_appt or (st.lapsed_on and not payload):
             return
         birth = date.fromisoformat(st.patient.birth_date)
+        first_age = self.flow["first_visit_age"]
         ready = date(birth.year + first_age, birth.month, min(birth.day, 28))
         if d < ready:
-            push(ready + timedelta(days=rng.randint(0, 120)), REQUEST, pid, payload)
+            self.push(ready + timedelta(days=rng.randint(0, 120)), REQUEST, pid, payload)
             return
         new = st.last_visit is None
         earliest = payload.get("earliest") or d + timedelta(days=rng.randint(2, 10) if new else rng.randint(1, 14))
         earliest = max(earliest, d + timedelta(days=1))
-        if new and earliest.month == 12 and earliest.day >= 15 and rng.random() < season["december_postpone"]:
+        if new and earliest.month == 12 and earliest.day >= 15 and rng.random() < self.season["december_postpone"]:
             earliest = date(earliest.year + 1, 1, rng.randint(3, 15))  # "let's do it after the holidays"
-        kind = kind_for(st, earliest, new)
-        minutes = visits["minutes"][kind]
+        kind = self.kind_for(st, earliest, new)
         pref = st.patient.preferred_time
         if pref == "after_school" and earliest.month in (7, 8):
             pref = "any"  # school is out
-        slot = cal.find(earliest, minutes, pref)
-        if slot is None or slot[0] > last_bookable:
+        slot = self.cal.find(earliest, self.visits["minutes"][kind], pref, "hygiene", None, st.busy)
+        if slot is None or slot[0] > self.last_bookable:
             if d + timedelta(days=30) < SIM_TODAY:
-                push(d + timedelta(days=30), REQUEST, pid, payload)
+                self.push(d + timedelta(days=30), REQUEST, pid, payload)
             return
-        day, prov, t = slot
-        wait = (day - earliest).days
+        wait = (slot[0] - earliest).days
         if (
             "earliest" not in payload
             and wait > recall["booked_out_days"]
@@ -508,63 +413,44 @@ def run(
             if rng.random() < recall["booked_out_drift"]:
                 st.lapsed_on = d
             elif d + timedelta(days=45) < SIM_TODAY:
-                push(d + timedelta(days=rng.randint(30, 75)), REQUEST, pid, payload)
+                self.push(d + timedelta(days=rng.randint(30, 75)), REQUEST, pid, payload)
             return
-        cal.book(day, prov, t, minutes)
-        aid = f"A{len(appts) + 1:07d}"
-        a = Appointment(
-            aid,
-            pid,
-            prov,
-            "hygiene",
-            day.isoformat(),
-            _hhmm(t),
-            _hhmm(t + minutes),
-            kind,
-            codes_for(st, kind, day),
-            d.isoformat(),
-            "scheduled",
-            "",
-            payload.get("rebook_of", ""),
-        )
-        appts[aid], minutes_of[aid] = a, minutes
-        st.future_appt = aid
-        lead = (day - d).days
-        c = st.truth.recall_compliance
-        p_early = out_cfg["early_cancel_base"] + out_cfg["early_cancel_per_noncompliance"] * (1 - c)
-        if lead > out_cfg["booked_far_out_days"]:
-            p_early += out_cfg["early_cancel_far_out_extra"]
-        if lead >= 3 and rng.random() < p_early:
-            push(d + timedelta(days=rng.randint(1, lead - 2)), CANCEL, aid)
-        push(day, VISIT, aid)
+        a = self.book(st, d, slot, kind, self.codes_for(st, kind, slot[0]), "hygiene", payload)
+        st.future_appt = a.appt_id
 
-    def visit(d: date, aid: str) -> None:
-        a = appts[aid]
+    # visits
+
+    def visit(self, d: date, aid: str) -> None:
+        a = self.appts[aid]
         if a.status != "scheduled":
             return
-        st = state[a.patient_id]
+        st, out, season, rng = self.state[a.patient_id], self.out_cfg, self.season, self.rng
         if st.left:
             # the office never heard they left: half never answer the confirmation calls and the slot is
             # cancelled the day before, the rest simply do not show up
             if rng.random() < 0.5:
-                cancel(a, d - timedelta(days=1), "cancelled", "left_practice")
+                self.cancel(a, d - timedelta(days=1), "cancelled", "left_practice")
             else:
                 st.no_shows += 1
-                cancel(a, d, "no_show", "left_practice")
+                self.cancel(a, d, "no_show", "left_practice")
+            self.rebook_or_drift(a, d, 0.0, d)
             return
-        if d in storm_closed:
-            cancel(a, d, "cancelled", "office_closed")
-            push(d + timedelta(days=1), REQUEST, a.patient_id, {"rebook_of": aid})
+        if d in self.storm_closed:
+            self.cancel(a, d, "cancelled", "office_closed")
+            self.rebook_or_drift(a, d, 0.9, d + timedelta(days=1))
             return
         t = st.truth
         ns, lc, cause = 1.0, 1.0, "patient"
         if st.reminded:
-            ns *= out_cfg["office_reminder_no_show_factor"]
-            lc *= out_cfg["office_reminder_late_cancel_factor"]
+            ns *= out["office_reminder_no_show_factor"]
+            lc *= out["office_reminder_late_cancel_factor"]
         if a.kind == "new_patient":
-            ns *= out_cfg["new_patient_no_show_factor"]
-        if (d - date.fromisoformat(a.booked_on)).days > out_cfg["booked_far_out_days"]:
-            ns *= out_cfg["booked_far_out_factor"]
+            ns *= out["new_patient_no_show_factor"]
+        if a.kind == "emergency":
+            ns *= out["emergency_no_show_factor"]
+            lc *= out["emergency_no_show_factor"]
+        if (d - date.fromisoformat(a.booked_on)).days > out["booked_far_out_days"]:
+            ns *= out["booked_far_out_factor"]
         ns *= season["no_show_day_of_week"].get(DAYS[d.weekday()], 1.0)
         if d.weekday() == 4 and d.month in (6, 7, 8):
             ns *= season["summer_friday_factor"]
@@ -572,129 +458,188 @@ def run(
         if holiday_week(d):
             ns *= season["holiday_week_factor"]
             cause = "holiday_week"
-        if d in bad_days:
+        if d in self.bad_days:
             ns *= season["weather_no_show_factor"]
             lc *= season["weather_late_cancel_factor"]
             cause = "weather"
         r = rng.random()
+        c = t.recall_compliance
         if r < t.no_show_rate * ns:
             st.no_shows += 1
-            cancel(a, d, "no_show", cause)
-            c = t.recall_compliance
-            if rng.random() < out_cfg["rebook_after_no_show_base"] + out_cfg["rebook_after_no_show_per_compliance"] * c:
-                push(d + timedelta(days=rng.randint(2, 21)), REQUEST, a.patient_id, {"rebook_of": aid})
-            else:
-                self_book(st, d, d)
+            self.cancel(a, d, "no_show", cause)
+            p = out["rebook_after_no_show_base"] + out["rebook_after_no_show_per_compliance"] * c
+            self.rebook_or_drift(a, d, p, d + timedelta(days=rng.randint(2, 21)))
         elif r < t.no_show_rate * ns + t.late_cancel_rate * lc:
             st.late_cancels += 1
-            cancel(a, d - timedelta(days=rng.choice([0, 1])), "late_cancel", cause)
-            if rng.random() < out_cfg["reschedule_after_late_cancel"]:
-                push(d + timedelta(days=rng.randint(3, 30)), REQUEST, a.patient_id, {"rebook_of": aid})
-            else:
-                self_book(st, d, d)
+            self.cancel(a, d - timedelta(days=rng.choice([0, 1])), "late_cancel", cause)
+            self.rebook_or_drift(a, d, out["reschedule_after_late_cancel"], d + timedelta(days=rng.randint(3, 30)))
         else:
-            a.status, a.status_on = "completed", d.isoformat()
+            self.complete(a, d)
+
+    def complete(self, a: Appointment, d: date) -> None:
+        st = self.state[a.patient_id]
+        a.status, a.status_on = "completed", d.isoformat()
+        if st.future_appt == a.appt_id:
             st.future_appt = ""
-            st.completed += 1
-            st.first_visit = st.first_visit or d
-            st.last_visit = d
-            if "D0274" in a.codes:
-                st.last_bitewings = d
-            if "D0210" in a.codes:
-                st.last_full_xrays = d
-            next_recall(st, d)
+        st.completed += 1
+        st.first_visit = st.first_visit or d
+        st.last_any = d
+        if a.kind in TREATMENT_KINDS:
+            self.complete_treatment(a, d)
+            return
+        tooth = self.payload_of[a.appt_id].get("tooth", "") if a.kind == "emergency" else ""
+        for code in a.codes.split():
+            self.procedures.append(Procedure(a.appt_id, a.patient_id, d.isoformat(), a.provider_id, code, tooth, ""))
+        if a.kind == "emergency":
+            self.complete_emergency(a, d)
+            return
+        st.last_visit = d
+        if "D0274" in a.codes:
+            st.last_bitewings = d
+        if "D0210" in a.codes:
+            st.last_full_xrays = d
+        self.exam(st, d)
+        self.next_recall(st, d)
 
-    # 3. the clock
-    while events and events[0][0] < SIM_TODAY:
-        d, prio, _, key, payload = heapq.heappop(events)
-        if prio == LEAVE:
-            st = state[key]
-            st.left = True
-            a = appts.get(st.future_appt)
-            if a and st.office_knows:
-                cancel(a, d, "cancelled", "left_practice")
-        elif prio == CANCEL:
-            a = appts[key]
-            if a.status == "scheduled":
-                cancel(a, d, "cancelled", "patient")
-                st = state[a.patient_id]
-                if rng.random() < out_cfg["reschedule_after_early_cancel"]:
-                    push(d, REQUEST, a.patient_id, {"rebook_of": key})
+    # the clock
+
+    def play(self) -> None:
+        while self.events and self.events[0][0] < SIM_TODAY:
+            d, prio, _, key, payload = heapq.heappop(self.events)
+            if prio == LEAVE:
+                st = self.state[key]
+                st.left = True
+                if st.office_knows:
+                    for a in self.appts.values():
+                        if a.patient_id == key and a.status == "scheduled":
+                            self.cancel(a, d, "cancelled", "left_practice")
+                            self.rebook_or_drift(a, d, 0.0, d)
+            elif prio == CANCEL:
+                a = self.appts[key]
+                if a.status == "scheduled":
+                    self.cancel(a, d, "cancelled", "patient")
+                    self.rebook_or_drift(a, d, self.out_cfg["reschedule_after_early_cancel"], d)
+            elif prio == PAIN:
+                self.pain_check(d)
+            elif prio == VISIT:
+                self.visit(d, key)
+            else:
+                kind = payload.get("kind", "hygiene")
+                if kind == "hygiene":
+                    self.request_hygiene(d, key, payload)
+                elif kind == "emergency":
+                    self.request_emergency(d, key, payload)
                 else:
-                    self_book(st, date.fromisoformat(a.date), d)
-        elif prio == VISIT:
-            visit(d, key)
-        else:
-            request(d, key, payload)
+                    self.request_treatment(d, key, payload)
+        self.finish_treatment()
 
-    # 4. what the office's system shows on SIM_TODAY, and the hidden story behind it
-    history, flows = [], []
-    inactive_after = SIM_TODAY - timedelta(days=548)  # offices call a patient inactive after 18 months
-    for pid, st in state.items():
-        nxt = appts.get(st.future_appt)
-        if st.left and st.office_knows:
-            status = "archived"
-        elif nxt or (st.last_visit and st.last_visit >= inactive_after):
-            status = "active"
-        else:
-            status = "inactive"
-        first = st.first_visit or (st.joined_on if st.joined_on < start else None)
-        history.append(
-            PatientHistory(
-                pid,
-                first.isoformat() if first else "",
-                st.last_visit.isoformat() if st.last_visit else "",
-                nxt.date if nxt else "",
-                st.completed,
-                st.no_shows,
-                st.late_cancels,
-                status,
+    def results(
+        self,
+    ) -> tuple[list[Appointment], list[AppointmentTruth], list[Procedure], list[PatientHistory], list[FlowTruth]]:
+        """What the office's system shows on SIM_TODAY, and the hidden story behind it."""
+        nxt: dict[str, str] = {}
+        for a in self.appts.values():
+            if a.status == "scheduled" and (a.patient_id not in nxt or a.date < nxt[a.patient_id]):
+                nxt[a.patient_id] = a.date
+        history, flows = [], []
+        inactive_after = SIM_TODAY - timedelta(days=548)  # offices call a patient inactive after 18 months
+        for pid, st in self.state.items():
+            cleaning = self.appts.get(st.future_appt)
+            if st.left and st.office_knows:
+                status = "archived"
+            elif pid in nxt or (st.last_any and st.last_any >= inactive_after):
+                status = "active"
+            else:
+                status = "inactive"
+            first = st.first_visit or (st.joined_on if st.joined_on < self.start else None)
+            history.append(
+                PatientHistory(
+                    pid,
+                    first.isoformat() if first else "",
+                    st.last_any.isoformat() if st.last_any else "",
+                    st.last_visit.isoformat() if st.last_visit else "",
+                    nxt.get(pid, ""),
+                    cleaning.date if cleaning else "",
+                    st.completed,
+                    st.no_shows,
+                    st.late_cancels,
+                    status,
+                )
             )
-        )
-        flows.append(
-            FlowTruth(
-                pid,
-                st.joined_on.isoformat(),
-                st.left_on.isoformat() if st.left_on else "",
-                st.left_reason,
-                st.office_knows,
-                st.lapsed_on.isoformat() if st.lapsed_on else "",
+            flows.append(
+                FlowTruth(
+                    pid,
+                    st.joined_on.isoformat(),
+                    st.left_on.isoformat() if st.left_on else "",
+                    st.left_reason,
+                    st.office_knows,
+                    st.lapsed_on.isoformat() if st.lapsed_on else "",
+                    st.turned_away,
+                )
             )
-        )
-    appointments = sorted(appts.values(), key=lambda a: (a.date, a.start, a.provider_id))
-    truth_rows = [AppointmentTruth(a.appt_id, causes.get(a.appt_id, "")) for a in appointments]
-    return appointments, truth_rows, history, flows
+        appointments = sorted(self.appts.values(), key=lambda a: (a.date, a.start, a.provider_id))
+        truth_rows = [AppointmentTruth(a.appt_id, self.causes.get(a.appt_id, "")) for a in appointments]
+        procedures = sorted(self.procedures, key=lambda p: (p.date, p.appt_id))
+        return appointments, truth_rows, procedures, history, flows
+
+
+def run(
+    office: Row,
+    patients: list[Patient],
+    truths: list[Truth],
+    teeth: list[Tooth],
+    conds: list[Condition],
+    perio: list[Perio],
+    plan: list[PlanItem],
+    configs_dir: Path,
+    former_ids: set[str],
+    seed: int = 42,
+) -> tuple[list[Appointment], list[AppointmentTruth], list[Procedure], list[PatientHistory], list[FlowTruth]]:
+    """Play out the history. Updates conds, perio and plan in place (found, treated, statuses)."""
+    practice = Practice(office, patients, truths, teeth, conds, perio, plan, configs_dir, former_ids, seed)
+    practice.play()
+    return practice.results()
 
 
 def overdue_share(history: list[PatientHistory], flows: list[FlowTruth], perio: list[Perio]) -> float:
     """Share of active patients past due for a cleaning with nothing booked: the recall gap Sadhana works."""
     gone = {f.patient_id for f in flows if f.left_on}
     maint = {x.patient_id for x in perio if x.maintenance}
-    active = [h for h in history if h.status == "active" and h.patient_id not in gone and h.last_visit]
+    active = [h for h in history if h.status == "active" and h.patient_id not in gone and h.last_cleaning]
     overdue = 0
     for h in active:
         months = 3 if h.patient_id in maint else 6
-        if not h.next_appointment and date.fromisoformat(h.last_visit) < _add_months(SIM_TODAY, -months - 1):
+        if not h.next_cleaning and date.fromisoformat(h.last_cleaning) < add_months(SIM_TODAY, -months - 1):
             overdue += 1
     return overdue / len(active)
 
 
-def utilization(appointments: list[Appointment], office: Row, months: int = 12) -> float:
-    """Booked hygiene minutes kept or held through the day (completed, no-show, late cancel) over capacity."""
+def utilization(appointments: list[Appointment], office: Row, column: str = "hygiene", months: int = 12) -> float:
+    """Booked minutes kept or held through the day (completed, no-show, late cancel) over capacity.
+    Dentists also spend a few minutes on the exam in every completed cleaning, which counts as doctor time."""
     cal = Calendar(office, holidays(range(SIM_TODAY.year - 2, SIM_TODAY.year + 1)))
-    lo = _add_months(SIM_TODAY, -months)
-    cap = sum(cal.capacity(lo + timedelta(days=i)) for i in range((SIM_TODAY - lo).days))
+    lo = add_months(SIM_TODAY, -months)
+    cap = sum(cal.capacity(lo + timedelta(days=i), column) for i in range((SIM_TODAY - lo).days))
     used = sum(
-        _min(a.end) - _min(a.start) + cal.turnover
+        to_min(a.end) - to_min(a.start) + cal.turnover
         for a in appointments
-        if a.status in ("completed", "no_show", "late_cancel") and lo <= date.fromisoformat(a.date) < SIM_TODAY
+        if a.column == column
+        and a.status in ("completed", "no_show", "late_cancel")
+        and lo <= date.fromisoformat(a.date) < SIM_TODAY
     )
-    return used / cap
+    if column == "doctor":
+        exams = sum(
+            a.kind in HYGIENE_KINDS and a.status == "completed" and lo <= date.fromisoformat(a.date) < SIM_TODAY
+            for a in appointments
+        )
+        used += exams * int(office.get("doctor_check_min_in_hygiene", 10))
+    return used / cap if cap else 0.0
 
 
 def write(
     appointments: list[Appointment],
     appt_truth: list[AppointmentTruth],
+    procedures: list[Procedure],
     history: list[PatientHistory],
     flows: list[FlowTruth],
     out_dir: Path,
@@ -703,6 +648,7 @@ def write(
     tables: dict[str, list] = {
         "appointments.csv": appointments,
         "appointment_truth.csv": appt_truth,
+        "procedures.csv": procedures,
         "patient_history.csv": history,
         "flow_truth.csv": flows,
     }

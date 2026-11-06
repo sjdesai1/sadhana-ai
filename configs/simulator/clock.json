@@ -48,7 +48,8 @@
     "rebook_after_no_show_base": 0.45,
     "rebook_after_no_show_per_compliance": 0.3,
     "reschedule_after_late_cancel": 0.7,
-    "reschedule_after_early_cancel": 0.75
+    "reschedule_after_early_cancel": 0.75,
+    "emergency_no_show_factor": 0.3
   },
   "seasonality": {
     "note": "Holiday weeks and summer Fridays run heavier no-shows; Monday slightly worse; Saturday better",
@@ -64,5 +65,33 @@
     "december_postpone": 0.35,
     "back_to_school_pull_child": 0.4,
     "year_end_benefit_pull": 0.2
+  },
+  "treatment": {
+    "note": "Case acceptance: most urgent work is accepted, about half of needed work, a small share of elective work",
+    "accept_base": {"urgent": 2.4, "needed": 0.5, "elective": -1.6},
+    "accept_trust": 2.4,
+    "accept_price": 2.0,
+    "cost_scale": 1000,
+    "financing_softens": 0.3,
+    "cosmetic_interest": 2.5,
+    "year_end_insured_boost": 0.4,
+    "january_reset_penalty": 0.2,
+    "repeat_penalty": 0.5,
+    "decline_outright": 0.25,
+    "emergency_accept_boost": 1.5,
+    "lead_days": {"urgent": [1, 5], "needed": [5, 21], "elective": [10, 45]},
+    "max_visit_minutes": 120,
+    "booked_out_days": 30,
+    "booked_out_drift": 0.25,
+    "missed_found_later": 0.5,
+    "new_decay_per_6_months": 0.9,
+    "big_filling_fails_per_exam": 0.03,
+    "perio_onset_per_exam": 0.04,
+    "broken_tooth_per_month": 0.003,
+    "pain_per_month": {"deep": 0.04, "periapical": 0.05, "cracked": 0.02},
+    "emergency_reactivates": 0.4,
+    "implant_healing_days": 90,
+    "after_root_canal_days": 7,
+    "aligner_check_days": 42
   }
 }
