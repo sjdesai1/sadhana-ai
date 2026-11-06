@@ -52,6 +52,8 @@ class Condition:
     condition: str  # caries, cracked, failing_restoration, impacted, periapical, missing_unreplaced
     severity: str  # early, moderate, deep, ""
     diagnosed: bool
+    found_on: str = ""  # filled in by the history: exam or emergency where it was found
+    treated_on: str = ""
 
 
 @dataclass
@@ -71,7 +73,12 @@ class PlanItem:
     code: str
     reason: str
     priority: str  # urgent, needed, elective
-    status: str  # proposed
+    status: str  # proposed; the history moves it to accepted, scheduled, completed, declined or referred
+    plan_id: str = ""
+    diagnosed_on: str = ""
+    status_on: str = ""
+    appt_id: str = ""
+    times_presented: int = 0
 
 
 def _kind(t: int) -> str:
