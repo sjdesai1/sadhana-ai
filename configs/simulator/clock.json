@@ -1,0 +1,68 @@
+{
+  "source": "Tunable assumptions for the day-by-day history; benchmarks noted next to each block",
+  "history_years": 3,
+  "future_booking_days": 240,
+  "patient_flow": {
+    "note": "Typical practice: 20-30 new patients a month per dentist, 10-20% of patients lost a year",
+    "joined_in_window_share": 0.35,
+    "former_patient_share": 0.35,
+    "former_joined_before_window": 0.5,
+    "leave_reasons": {"moved": 0.4, "switched_dentist": 0.25, "insurance_change": 0.2, "unhappy": 0.15},
+    "office_learns_reason": {"moved": 0.3, "switched_dentist": 0.6, "insurance_change": 0.5, "unhappy": 0.1, "deceased": 0.5},
+    "new_patient_month_weights": {"1": 1.15, "2": 1.0, "3": 1.1, "4": 1.0, "5": 0.95, "6": 0.95,
+                                  "7": 0.85, "8": 1.05, "9": 1.15, "10": 1.1, "11": 0.95, "12": 0.75},
+    "first_visit_age": 2
+  },
+  "recall": {
+    "note": "Most patients are on 6-month recall; treated gum disease is every 3 months",
+    "months": 6,
+    "perio_maintenance_months": 3,
+    "preappoint_base": 0.25,
+    "preappoint_per_compliance": 0.45,
+    "lapse_base": 0.05,
+    "lapse_per_noncompliance_sq": 0.3,
+    "delay_base_days": 5,
+    "delay_per_noncompliance_days": 150,
+    "office_reminder_delay_factor": 0.8,
+    "office_reminder_lapse_factor": 0.85,
+    "booked_out_days": 21,
+    "booked_out_decline": 0.5,
+    "booked_out_drift": 0.3
+  },
+  "visits": {
+    "minutes": {"recall_adult": 60, "recall_child": 45, "perio_maintenance": 60, "new_patient": 90},
+    "child_cleaning_under": 14,
+    "bitewings_every_months": 12,
+    "full_xrays_every_years": 5
+  },
+  "outcomes": {
+    "note": "With the office's own reminder texts most offices see about 5% no-shows and 4-6% late cancels",
+    "office_reminder_no_show_factor": 0.75,
+    "office_reminder_late_cancel_factor": 0.9,
+    "new_patient_no_show_factor": 1.5,
+    "booked_far_out_days": 90,
+    "booked_far_out_factor": 1.3,
+    "early_cancel_base": 0.04,
+    "early_cancel_per_noncompliance": 0.07,
+    "early_cancel_far_out_extra": 0.04,
+    "rebook_after_no_show_base": 0.45,
+    "rebook_after_no_show_per_compliance": 0.3,
+    "reschedule_after_late_cancel": 0.7,
+    "reschedule_after_early_cancel": 0.75
+  },
+  "seasonality": {
+    "note": "Holiday weeks and summer Fridays run heavier no-shows; Monday slightly worse; Saturday better",
+    "no_show_day_of_week": {"Mon": 1.1, "Sat": 0.9},
+    "holiday_week_factor": 1.6,
+    "summer_friday_factor": 1.25,
+    "weather_no_show_factor": 2.5,
+    "weather_late_cancel_factor": 2.0,
+    "bad_weather_days_per_winter": 6,
+    "storm_days_per_summer": 3,
+    "office_closed_storms_per_winter": 1,
+    "summer_postpone_adult": 0.25,
+    "december_postpone": 0.35,
+    "back_to_school_pull_child": 0.4,
+    "year_end_benefit_pull": 0.2
+  }
+}

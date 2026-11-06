@@ -12,6 +12,10 @@ each minor version is a finished milestone.
 - Simulator, part 2: dental charts. Baby, mixed or permanent teeth by age; missing teeth, fillings, crowns, root
   canals and implants that build up with age; active decay, failing restorations, cracks and impacted wisdom teeth;
   gum disease stages; exams that miss some problems; treatment plans in catalog codes, status proposed
+- Simulator, part 3a: three-year day-by-day hygiene history. New and former patients with join and leave dates;
+  appointments in real provider slots around hours, lunch and holidays; recall with pre-booking, late returns and
+  lapses; no-shows, late and early cancels; holiday, summer, weather and back-to-school seasonality; the office's
+  existing reminders as the baseline; future bookings past today
 
 ### Fixed
 - Docker image build: copy source before installing, since dependencies are read from requirements.txt
