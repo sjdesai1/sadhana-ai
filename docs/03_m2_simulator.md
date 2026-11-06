@@ -7,10 +7,10 @@ Built in small PRs:
 | Part | What it adds | Status |
 | --- | --- | --- |
 | 1 Population | Patients, households, ZIP and income tier, language, insurance, consent, hidden traits | Done |
-| 2 Dental charts | 32 teeth per patient, conditions, restorations, perio stage | Next |
-| 3 History | Three years of appointments, recall, treatment plans, no-shows, cancellations | |
-| 4 Money | Claims, benefits used, patient portions, balances | |
-| 5 Calibration | Checks against real-world targets | |
+| 2 Dental charts | Teeth by age, existing work, active problems, gum disease, treatment plans | Done |
+| 3 Clock and history | Day-by-day clock: appointments, recall, no-shows, cancellations, seasonality, new patients, churn | Next |
+| 4 Money | Claims, benefits used, patient portions, balances, year-end resets | |
+| 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; checks of the full multi-year run | |
 
 ## Part 1: Population
 
@@ -39,3 +39,31 @@ Rules that keep it realistic:
 
 Tests: `tests/test_population.py` checks reproducibility, counts, payer mix, Medicaid rules, households, consent,
 and that behavior follows real patterns (income and price sensitivity, age and texting, age and perio risk).
+
+## Part 2: Dental charts
+
+Run: `make sim` now also writes `teeth.csv`, `conditions.csv`, `perio.csv` and `treatment_plan.csv`.
+
+| File | One row per | Truth or observed |
+| --- | --- | --- |
+| teeth.csv | tooth: present, why missing, filling / crown / implant, age of the work, root canal | Observed |
+| conditions.csv | problem on a tooth: decay (early, moderate, deep), failing restoration, crack, impacted, missing | Truth, with a `diagnosed` flag for what the exam found |
+| perio.csv | patient: true gum stage, charted stage, bleeding, grinding wear, on maintenance | Both |
+| treatment_plan.csv | proposed procedure: tooth or quadrant, CDT code, reason, priority | Observed |
+
+How it works:
+- Teeth by age: baby teeth under 6, mixed 6-11, permanent from 12; wisdom teeth unerupted, removed, or impacted
+- Missing teeth rise with age, lower income and poor recall; molars are lost first; some gaps already have implants
+- Fillings and crowns build up with years of exposure and caries risk; old work fails at realistic rates
+- Gum stage follows each patient's hidden perio risk; some perio patients were already treated and are on maintenance
+- Exams find about 85% of decay and 60% of cracks; the chart is off by one gum stage 20% of the time
+- Each diagnosed problem becomes procedures: deep decay = root canal + buildup + crown; moderate decay under a big
+  filling = crown; perio stage 2+ = scaling and root planing per quadrant; grinding = night guard
+- Elective items only when they make sense: implants for one gap, whitening only with marketing consent and real
+  interest, aligners for crowding with cosmetic interest
+
+Checks against real-world benchmarks: adults with untreated decay about 20% (CDC: about one in four), periodontitis in
+adults 30+ about 40-50% (CDC: about 42%), missing teeth rising each decade.
+
+The proposed plan is everything diagnosed and not yet done. Part 3 plays out time on it: some items get scheduled and
+completed, some are declined, and the rest is the unscheduled treatment the product chases.
