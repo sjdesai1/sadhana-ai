@@ -5,17 +5,18 @@ The single place to pick up the build. Updated in every PR.
 ## Where things stand
 
 - Milestone 0 (local stack, CI/CD) and 1 (economics engine): done, released as 0.1.0
-- Milestone 2 (simulator): parts 1, 2, 3a and 3b done; part 4 (money) next
-- Last updated with: docs PR adding this file and decision record 0007
+- Milestone 2 (simulator): parts 1, 2, 3a, 3b and 4 done; part 5 next
+- Last updated with: simulator part 4, money
 
 ## Next
 
-1. Simulator part 4, money: claims, allowed amounts, benefits used and remaining, deductibles, patient portions,
-   balances, year-end resets, cancellation fees (none for Medicaid)
-2. Simulator part 5: life events (job loss, retirement, coverage changes, moves), market scenarios, calibration of
-   the full run
-3. Then the spec's build order: sync and adapters, benefits engine, nightly models, optimizer, agents, evals,
+1. Simulator part 5: life events (job loss, retirement, coverage changes, moves), market scenarios, plus 2-3
+   hidden test offices with different settings and a stress-test switch. Models are never tuned on the hidden
+   offices, only tested on them
+2. Then the spec's build order: sync and adapters, benefits engine, nightly models, optimizer, agents, evals,
    reports, demo mode, pilot readiness
+3. Once the product runs end to end: point the sync at Open Dental's demo database and fix what breaks
+4. Code walkthrough of every milestone at the end
 
 ## Latest benchmark run (`make sim`, seed 42)
 
@@ -29,6 +30,11 @@ The single place to pick up the build. Updated in every PR.
 | Active patients overdue, nothing booked | 24% | 31% | a fifth to a third |
 | Unscheduled treatment | about $1.0M | about $3.9M | $500k-$1M+ per dentist |
 | Emergencies seen | about 7 a month | about 25 a month | several a week per dentist |
+| Gross production, last 12 months | about $1.35M | about $3.2M | $0.8-1.5M per general dentist |
+| Write-offs | 32% | 45% | PPO 25-40%; more with Medicaid |
+| Collected of net production | 98% | 98% | 95-98% |
+| Claims denied the first time | 7% | 7% | 5-10% |
+| Unused benefits per active insured patient | about $1,100 | about $1,190 | most never reach their max |
 
 ## Open decisions
 

@@ -93,5 +93,26 @@
     "implant_healing_days": 90,
     "after_root_canal_days": 7,
     "aligner_check_days": 42
+  },
+  "billing": {
+    "note": "Claims: commercial payers pay in 2-5 weeks, Medicaid slower; 5-10% of claims are denied the first time; offices collect 95-98% of net production",
+    "pay_days": {"commercial": [10, 35], "medicaid": [20, 60]},
+    "first_pass_denial": {"commercial": 0.06, "medicaid": 0.1},
+    "denial_reasons": ["missing x-ray", "needs narrative", "eligibility not verified", "coding error", "missing tooth number"],
+    "resubmit_success": 0.85,
+    "resubmit_days": [14, 45],
+    "big_bill": 1000,
+    "financing_share": 0.5,
+    "financing_fee": 0.08,
+    "payment_plan_share": 0.25,
+    "payment_plan_months": 6,
+    "pay_at_visit_base": 0.5,
+    "pay_at_visit_per_ease": 0.35,
+    "bad_debt_base": 0.01,
+    "bad_debt_per_sensitivity": 0.04,
+    "collections_after_days": 120,
+    "statement_days_base": 20,
+    "statement_days_per_sensitivity": 40,
+    "fee_waived_for": ["weather", "office_closed", "left_practice"]
   }
 }

@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 from sadhana.config import settings
-from sadhana.simulator import history
+from sadhana.simulator import history, money
 from sadhana.simulator.build import Sim, simulate, write
 from sadhana.simulator.population import SIM_TODAY
 from sadhana.simulator.treatment import load_catalog, plan_value
@@ -31,6 +31,7 @@ def main() -> None:
         _print_population(sim, out)
         _print_history(sim.office, sim.appointments, sim.appointment_truth, sim.history, sim.flows, sim.perio)
         _print_treatment(sim, configs)
+        _print_money(sim)
 
 
 def _print_population(sim: Sim, out: Path) -> None:
@@ -90,6 +91,31 @@ def _print_treatment(sim: Sim, configs: Path) -> None:
     print(
         f"  unscheduled treatment: ${open_value / 1000:,.0f}k ({open_value / total:.0%} of diagnosed); "
         f"emergencies seen {emergencies}, turned away {turned}"
+    )
+
+
+def _print_money(sim: Sim) -> None:
+    if sim.money is None:
+        return
+    m = money.summary(sim.money)
+    print(
+        f"  money, last 12 months: gross ${m['gross'] / 1000:,.0f}k, write-offs {m['write_off_share']:.0%}, "
+        f"net ${m['net'] / 1000:,.0f}k, collected {m['collection_rate']:.0%} of net"
+    )
+    print(
+        f"  claims: {m['first_pass_denial']:.1%} denied first time, paid in {m['median_days_to_pay']} days (median); "
+        f"patient balances ${m['patient_ar'] / 1000:,.0f}k "
+        f"({m['over_90'] / max(m['patient_ar'], 1):.0%} over 90 days), "
+        f"insurance owed ${m['insurance_pending'] / 1000:,.0f}k"
+    )
+    active = {h.patient_id for h in sim.history if h.status == "active"}
+    this_year = [
+        b for b in sim.money.benefits if b.year == SIM_TODAY.year and b.rank == "primary" and b.patient_id in active
+    ]
+    unused = sum(b.remaining for b in this_year)
+    print(
+        f"  benefits {SIM_TODAY.year}: {len(this_year)} active insured patients, ${unused / 1000:,.0f}k unused "
+        f"(${unused / max(len(this_year), 1):,.0f} each), expiring Dec 31"
     )
 
 
