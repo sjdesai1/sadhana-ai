@@ -5,6 +5,11 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+### Added
+- Simulator, part 1: synthetic patient population per office (`make sim`). Households sharing ZIP, language,
+  insurance and behavior; NYC neighborhood income tiers; insurance raked to each office's payer mix; consent,
+  phone type and noisy health-form fields; hidden truth traits kept in a separate table
+
 ### Fixed
 - Docker image build: copy source before installing, since dependencies are read from requirements.txt
 - Dagster test uses resolve_job_def instead of the deprecated job lookup

@@ -6,21 +6,56 @@
   "collection_rate": 0.97,
   "cash_discount": 0.05,
   "operatories": 5,
-  "operatory_roles": {"hygiene": 2, "doctor": 3},
-  "equipment": ["pano", "scanner", "nitrous"],
-  "hours": {"Mon": ["08:00", "17:00"], "Tue": ["08:00", "17:00"], "Wed": ["08:00", "19:00"], "Thu": ["08:00", "17:00"], "Fri": ["08:00", "14:00"]},
-  "lunch": ["12:30", "13:30"],
+  "operatory_roles": {
+    "hygiene": 2,
+    "doctor": 3
+  },
+  "equipment": [
+    "pano",
+    "scanner",
+    "nitrous"
+  ],
+  "hours": {
+    "Mon": [
+      "08:00",
+      "17:00"
+    ],
+    "Tue": [
+      "08:00",
+      "17:00"
+    ],
+    "Wed": [
+      "08:00",
+      "19:00"
+    ],
+    "Thu": [
+      "08:00",
+      "17:00"
+    ],
+    "Fri": [
+      "08:00",
+      "14:00"
+    ]
+  },
+  "lunch": [
+    "12:30",
+    "13:30"
+  ],
   "turnover_min": 10,
   "doctor_check_min_in_hygiene": 10,
   "emergency_slots_per_day": 1,
-  "cancellation_policy": {"fee": 25, "notice_hours": 24, "collection_rate": 0.35},
+  "cancellation_policy": {
+    "fee": 25,
+    "notice_hours": 24,
+    "collection_rate": 0.35
+  },
   "accepts_medicaid": false,
   "payer_mix": {
     "Cash": 0.18,
     "Delta Dental PPO": 0.24,
     "Delta Dental Premier": 0.08,
     "MetLife PDP": 0.14,
-    "Cigna DPPO": 0.10,
+    "Cigna DPPO": 0.1,
     "Aetna DPPO": 0.09,
     "Guardian": 0.07,
     "UnitedHealthcare Dental": 0.06,
@@ -33,12 +68,183 @@
     "Hygienist anesthesia and nitrous only when a dentist is in the office"
   ],
   "staff": [
-    {"id": "D1", "name": "Dr Owner", "role": "owner_dentist", "tier": "senior", "specialty": "", "certs": ["implant_surgery", "oral_surgery", "aligner_certified", "nitrous"], "comp": {"type": "owner_opportunity", "hourly_value": 550}, "speed": 1.0, "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "languages": ["English", "Spanish"]},
-    {"id": "H1", "name": "Hygienist A", "role": "hygienist", "tier": "", "specialty": "", "certs": ["local_anesthesia", "nitrous"], "comp": {"type": "hourly", "rate": 58}, "speed": 1.0, "days": ["Mon", "Tue", "Wed", "Thu"], "languages": ["English"]},
-    {"id": "H2", "name": "Hygienist B", "role": "hygienist", "tier": "", "specialty": "", "certs": [], "comp": {"type": "hourly", "rate": 54}, "speed": 1.0, "days": ["Tue", "Wed", "Thu", "Fri"], "languages": ["English", "Russian"]},
-    {"id": "A1", "name": "Assistant A", "role": "rda", "tier": "", "specialty": "", "certs": ["xray"], "comp": {"type": "hourly", "rate": 27}, "speed": 1.0, "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "languages": ["English", "Spanish"]},
-    {"id": "A2", "name": "Assistant B", "role": "dental_assistant", "tier": "", "specialty": "", "certs": ["xray"], "comp": {"type": "hourly", "rate": 21}, "speed": 1.0, "days": ["Mon", "Wed", "Thu"], "languages": ["English", "Mandarin"]},
-    {"id": "F1", "name": "Front Desk A", "role": "front_desk", "tier": "", "specialty": "", "certs": [], "comp": {"type": "hourly", "rate": 24}, "speed": 1.0, "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "languages": ["English", "Spanish"]},
-    {"id": "F2", "name": "Front Desk B", "role": "front_desk", "tier": "", "specialty": "", "certs": [], "comp": {"type": "hourly", "rate": 23}, "speed": 1.0, "days": ["Mon", "Tue", "Wed", "Thu"], "languages": ["English", "Cantonese"]}
-  ]
+    {
+      "id": "D1",
+      "name": "Dr Owner",
+      "role": "owner_dentist",
+      "tier": "senior",
+      "specialty": "",
+      "certs": [
+        "implant_surgery",
+        "oral_surgery",
+        "aligner_certified",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "owner_opportunity",
+        "hourly_value": 550
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "H1",
+      "name": "Hygienist A",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 58
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English"
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Hygienist B",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 54
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Russian"
+      ]
+    },
+    {
+      "id": "A1",
+      "name": "Assistant A",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 27
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Assistant B",
+      "role": "dental_assistant",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 21
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English",
+        "Mandarin"
+      ]
+    },
+    {
+      "id": "F1",
+      "name": "Front Desk A",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 24
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "F2",
+      "name": "Front Desk B",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 23
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English",
+        "Cantonese"
+      ]
+    }
+  ],
+  "simulation": {
+    "active_patients": 2000,
+    "area": "midtown_manhattan"
+  }
 }
