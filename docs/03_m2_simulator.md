@@ -10,8 +10,8 @@ Built in small PRs:
 | 2 Dental charts | Teeth by age, existing work, active problems, gum disease, treatment plans | Done |
 | 3a Clock and hygiene history | Day-by-day clock: hygiene schedule, recall, no-shows, cancellations, seasonality, new and former patients | Done |
 | 3b Treatment history | Doctor and specialist schedule, plan items scheduled / completed / declined, new findings, emergencies | Done |
-| 4 Money | Claims, benefits used, patient portions, balances, year-end resets | Next |
-| 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; checks of the full multi-year run | |
+| 4 Money | Claims, benefits used, patient portions, balances, year-end resets | Done |
+| 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; hidden test offices and stress tests | Next |
 
 ## Part 1: Population
 
@@ -155,3 +155,41 @@ Checks against real-world benchmarks (seed 42):
 | Urgent work done vs needed vs elective | highest, middle, lowest | same | case acceptance falls with priority and price |
 | Unscheduled treatment (accepted or proposed, not done) | about $1.0M, 26% of diagnosed | about $3.9M, 39% | most offices hold $500k-$1M+ per dentist |
 | Emergencies seen | about 7 a month | about 25 a month | several a week per dentist |
+
+## Part 4: Money
+
+Every completed procedure, missed visit and payment, as an office's billing system would hold them. Code:
+`money.py`; tunables in the `billing` block of `configs/simulator/clock.json`.
+
+| File | One row per |
+| --- | --- |
+| ledger.csv | procedure or charge: fee, allowed, primary and secondary paid, patient portion, write-off, why (frequency limit, waiting period, not covered, annual max reached, denied); plus financing fees, collections and cancellation fees |
+| claims.csv | claim per payer per visit: submitted, paid, expected vs paid, denial reason, paid after resubmit or written off, pending on SIM_TODAY |
+| payments.csv | payment: insurance, patient, financing company, payment plan installment, cancellation fee |
+| benefits.csv | insured patient per year and payer: annual max, used, remaining, deductible met |
+| balances.csv | guarantor on SIM_TODAY: balance aged 0-30, 31-60, 61-90, 90+ days, insurance still owed, on a payment plan |
+
+How it works:
+- Allowed amounts from the economics engine: PPO fee schedules, the Medicaid fee schedule, cash fee less the
+  discount, elective cosmetic work paid by the patient
+- Benefits per calendar year: deductible on basic and major work, coverage by class, annual max, frequency limits
+  from the catalog (two cleanings a year, one crown per tooth in five years), 12-month waiting periods for major
+  work on some plans; secondary insurance pays up to the patient's share
+- Claims: commercial payers pay in about 10-35 days, Medicaid in 20-60; about 6% of commercial and 10% of Medicaid
+  claims are denied the first time; most are paid after a resubmit, the rest written off
+- Parents and policyholders pay for their family. Patient portions are paid at the desk, later from a statement,
+  through a financing company (office pays a fee), on a 6-month plan, or sent to collections, driven by hidden
+  price sensitivity, income and financing propensity
+- Cancellation fees per office policy, never for Medicaid, waived for weather, storm closures and patients who left;
+  only some are collected
+
+Checks against real-world benchmarks (last 12 months, seed 42):
+
+| Metric | Solo Manhattan | Group Queens | Benchmark |
+| --- | --- | --- | --- |
+| Gross production | about $1.35M | about $3.2M | $0.8-1.5M per general dentist with hygiene |
+| Write-offs | 32% | 45% | PPO 25-40%; more with Medicaid |
+| Collected of net production | 98% | 98% | 95-98% |
+| Claims denied the first time | 7% | 7% | 5-10% |
+| Days for a claim to pay (median) | 23 | 27 | 2-5 weeks |
+| Unused benefits this year per active insured patient | about $1,100 | about $1,190 | most patients never reach their max |

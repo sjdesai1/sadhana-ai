@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from sadhana.simulator import charts, history
+from sadhana.simulator import charts, history, money
 from sadhana.simulator.population import Patient, Truth, generate
 from sadhana.simulator.population import write as write_population
 from sadhana.simulator.schedule import Appointment, AppointmentTruth, Procedure
@@ -31,6 +31,7 @@ class Sim:
     procedures: list[Procedure]
     history: list[history.PatientHistory]
     flows: list[history.FlowTruth]
+    money: money.Money | None = None
 
 
 def simulate(office_id: str, configs_dir: Path, seed: int = 42) -> Sim:
@@ -47,7 +48,7 @@ def simulate(office_id: str, configs_dir: Path, seed: int = 42) -> Sim:
         office, everyone, all_truths, teeth, conds, perio, plan, configs_dir, former_ids, seed=seed
     )
     current = {p.patient_id for p in patients}
-    return Sim(
+    sim = Sim(
         office,
         everyone,
         all_truths,
@@ -64,10 +65,14 @@ def simulate(office_id: str, configs_dir: Path, seed: int = 42) -> Sim:
         hist,
         flows,
     )
+    sim.money = money.run(sim, configs_dir, seed=seed)
+    return sim
 
 
 def write(sim: Sim, out_dir: Path) -> Path:
     write_population(sim.patients, sim.truths, out_dir)
     charts.write(sim.teeth, sim.conditions, sim.perio, sim.plan, out_dir)
     history.write(sim.appointments, sim.appointment_truth, sim.procedures, sim.history, sim.flows, out_dir)
+    if sim.money:
+        money.write(sim.money, out_dir)
     return out_dir
