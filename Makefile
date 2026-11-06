@@ -1,5 +1,5 @@
 # Shortcuts. Each target is just the docker / python command written next to it.
-.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim
+.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim sync db
 
 setup:          ## one-time: create .env, the local Python environment and the git hooks
 	@test -f .env || cp .env.example .env
@@ -56,3 +56,10 @@ dagster:        ## Dagster UI locally at http://localhost:3000 without Docker
 # ---- milestone 2: simulator ----
 sim:            ## synthetic patients for every office into outputs/<office>/sim (make sim o=solo_manhattan seed=7)
 	uv run python -m sadhana.simulator $(o) --seed $(or $(seed),42)
+
+# ---- milestone 3: data layer and sync ----
+sync:           ## load make sim output into Postgres, one schema per office (make up first; make sync o=solo_manhattan)
+	uv run python -m sadhana.sync $(o)
+
+db:             ## open a SQL prompt on the local database
+	docker compose exec postgres psql -U sadhana sadhana

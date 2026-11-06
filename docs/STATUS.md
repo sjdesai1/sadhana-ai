@@ -2,19 +2,26 @@
 
 The single place to pick up the build. Updated in every PR.
 
+## Roadmap
+
+- v1: the whole product, built and demoed on the two demo offices
+- v2: the same product tested on more and different simulations (hidden test offices, scenarios, stress settings)
+- v3: real data, starting with Open Dental's demo database, then a pilot office
+
 ## Where things stand
 
 - Milestone 0 (local stack, CI/CD) and 1 (economics engine): done, released as 0.1.0
 - Milestone 2 (simulator): done, parts 1 to 5, released as 0.2.0
-- Milestone 3 (data layer and sync): next
-- Last updated with: release 0.2.0
+- Milestone 3 (data layer and sync): part 1 done (canonical tables, row-level security, sync); part 2 next
+- Last updated with: milestone 3 part 1, canonical tables and sync
 
 ## Next
 
-1. The spec's build order, starting with milestone 3 (data layer and sync), then the benefits engine, nightly
-   models, optimizer, agents, evals, reports, demo mode and pilot readiness
-2. Once the product runs end to end: point the sync at Open Dental's demo database and fix what breaks
-3. Code walkthrough of every milestone at the end
+1. Milestone 3 part 2: nightly Dagster sync ahead of the economics tables; first API endpoints on the database
+   (office summary, overdue patients, unscheduled treatment, unused benefits)
+2. Then the spec's build order: benefits engine, nightly models, optimizer, agents, evals, reports, demo mode,
+   pilot readiness (v1)
+3. v2 and v3 as in the roadmap; code walkthrough of every milestone at the end
 
 ## Latest benchmark run (`make sim`, seed 42)
 
@@ -42,6 +49,12 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 - Office configs' `active_patients` now means patients on file at the start; rename when convenient
 - Treatment decisions ignore the annual max (the money step applies it afterward); feed remaining benefits into
   decisions when the benefits engine is built
+
+## Running locally
+
+- `make sim` builds the demo offices; `make up` starts Postgres and the stack; `make sync` loads them;
+  `make db` opens a SQL prompt
+- Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens
 
