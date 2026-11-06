@@ -25,6 +25,10 @@ each minor version is a finished milestone.
   write-offs; claims with denials, resubmits and payment lag; secondary insurance; deductibles, annual max,
   frequency limits and waiting periods per calendar year; patient payments, financing, payment plans and
   collections; cancellation fees; balances with aging; unused benefits per patient
+- Simulator, part 5: life events generated backward from today (job loss, retirement, new job, January plan
+  switch) with billing by the payer on each date and stale-card denials; recession, payer fee cut and competitor
+  scenarios; stress overrides per office or per run; three hidden test offices in `configs/offices_holdout/`
+- Decision record 0008: hidden test offices are never tuned on
 - `docs/STATUS.md`: where the build stands, what is next, latest benchmarks; updated in every PR
 - Decision record 0007: what agents do alone vs with approval, doorbell and watchdog escalation, versioned message
   templates, per-office LLM budget

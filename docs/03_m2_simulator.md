@@ -11,7 +11,7 @@ Built in small PRs:
 | 3a Clock and hygiene history | Day-by-day clock: hygiene schedule, recall, no-shows, cancellations, seasonality, new and former patients | Done |
 | 3b Treatment history | Doctor and specialist schedule, plan items scheduled / completed / declined, new findings, emergencies | Done |
 | 4 Money | Claims, benefits used, patient portions, balances, year-end resets | Done |
-| 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; hidden test offices and stress tests | Next |
+| 5 Life events and calibration | Layoffs, retirement, coverage changes, market scenarios; hidden test offices and stress tests | Done |
 
 ## Part 1: Population
 
@@ -193,3 +193,37 @@ Checks against real-world benchmarks (last 12 months, seed 42):
 | Claims denied the first time | 7% | 7% | 5-10% |
 | Days for a claim to pay (median) | 23 | 27 | 2-5 weeks |
 | Unused benefits this year per active insured patient | about $1,100 | about $1,190 | most patients never reach their max |
+
+## Part 5: Life events, scenarios, stress settings and hidden test offices
+
+Code: `events.py`; settings in the `life_events` and `scenarios` blocks of `configs/simulator/clock.json`. New
+hidden file: `life_events.csv` (household, date, event, insurance before and after).
+
+Life events run backward from today, so every office's payer mix still matches:
+- Cash today, working age: some had employer PPO until a job loss; they book later and drift away more often
+- Cash today, 65 to 72: some had PPO until retirement
+- Medicaid today: some had PPO before a job loss
+- PPO today: some switched carriers in January, some were uninsured before a new job
+- Each plan gets its own annual max and deductible, so a mid-year switch starts fresh
+- The first claim after a change often goes to the old card and comes back "coverage terminated"
+
+Scenarios, off unless an office config lists them under `simulation.scenarios`:
+
+| Scenario | Effect |
+| --- | --- |
+| recession | 12 months of fewer yeses on needed and elective work, twice the job losses, fewer new patients |
+| payer_cut | one payer cuts its fee schedule by 10% from a date |
+| competitor | a practice opens nearby: more patients leave after it, fewer new ones come |
+
+Stress settings: any `clock.json` value can be overridden per office under `simulation.overrides`, or per run with
+`simulate(..., overrides=...)`; for example `no_show_multiplier`, `late_cancel_multiplier`, `accept_shift`,
+`delay_multiplier`, `lapse_multiplier`.
+
+Hidden test offices live in `configs/offices_holdout/` (decision record 0008). `make sim` and demos never include
+them, and nothing is tuned on them. Tests check they still look like real offices:
+
+| Office | No-shows | Hygiene full | Doctor full | Overdue | Write-offs | Collected |
+| --- | --- | --- | --- | --- | --- | --- |
+| Bronx, half Medicaid | 8.2% | 81% | 40% | 31% | 51% | 97% |
+| Park Slope family | 5.6% | 85% | 55% | 25% | 36% | 99% |
+| Upper East Side boutique | 5.6% | 81% | 49% | 21% | 20% | 98% |

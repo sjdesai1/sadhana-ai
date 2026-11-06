@@ -34,3 +34,11 @@ def group_sim():
     from sadhana.simulator.build import simulate
 
     return simulate("group_queens", CONFIGS, seed=42)
+
+
+@pytest.fixture(scope="session")
+def holdout_sims():
+    from sadhana.simulator.build import simulate
+
+    names = ("holdout_bronx_medicaid", "holdout_park_slope_family", "holdout_ues_boutique")
+    return {n: simulate(n, CONFIGS, seed=42) for n in names}
