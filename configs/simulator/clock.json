@@ -114,5 +114,23 @@
     "statement_days_base": 20,
     "statement_days_per_sensitivity": 40,
     "fee_waived_for": ["weather", "office_closed", "left_practice"]
+  },
+  "life_events": {
+    "note": "Generated backward from today so payer mixes still match: who lost, changed or gained insurance during the window",
+    "job_loss_cash_share": 0.3,
+    "retired_cash_share": 0.5,
+    "medicaid_after_job_loss_share": 0.15,
+    "new_job_from_cash_share": 0.06,
+    "january_switch_per_year": 0.05,
+    "first_claim_wrong_payer": 0.5,
+    "uninsured_delay_factor": 1.5,
+    "uninsured_lapse_factor": 1.5
+  },
+  "scenarios": {
+    "note": "Off unless an office lists them under simulation.scenarios",
+    "recession": {"start": "2025-03-01", "months": 12, "accept_shift": {"elective": -0.8, "needed": -0.3},
+                  "job_loss_factor": 2.0, "new_patient_factor": 0.85},
+    "payer_cut": {"start": "2025-07-01", "payer": "Cigna DPPO", "allowed_factor": 0.9},
+    "competitor": {"start": "2025-09-01", "extra_former_share": 0.1, "new_patient_factor": 0.8}
   }
 }

@@ -1,0 +1,396 @@
+{
+  "office_id": "holdout_bronx_medicaid",
+  "name": "Hidden Test: Medicaid Group, South Bronx",
+  "state": "NY",
+  "fee_multiplier": 0.8,
+  "collection_rate": 0.94,
+  "cash_discount": 0.05,
+  "operatories": 6,
+  "operatory_roles": {
+    "hygiene": 3,
+    "doctor": 3
+  },
+  "equipment": [
+    "pano",
+    "cbct",
+    "scanner",
+    "nitrous"
+  ],
+  "hours": {
+    "Mon": [
+      "08:00",
+      "19:00"
+    ],
+    "Tue": [
+      "08:00",
+      "19:00"
+    ],
+    "Wed": [
+      "08:00",
+      "19:00"
+    ],
+    "Thu": [
+      "08:00",
+      "19:00"
+    ],
+    "Fri": [
+      "08:00",
+      "17:00"
+    ],
+    "Sat": [
+      "08:00",
+      "14:00"
+    ]
+  },
+  "lunch": [
+    "13:00",
+    "14:00"
+  ],
+  "turnover_min": 10,
+  "doctor_check_min_in_hygiene": 10,
+  "emergency_slots_per_day": 2,
+  "cancellation_policy": {
+    "fee": 25,
+    "notice_hours": 24,
+    "collection_rate": 0.3
+  },
+  "accepts_medicaid": true,
+  "payer_mix": {
+    "NY Medicaid": 0.5,
+    "Cash": 0.12,
+    "Delta Dental PPO": 0.1,
+    "MetLife PDP": 0.08,
+    "Cigna DPPO": 0.06,
+    "UnitedHealthcare Dental": 0.06,
+    "Empire Anthem": 0.08
+  },
+  "rules": [
+    "Medicaid patients get no cancellation fee",
+    "Junior associate does not place implants, molar root canals or impactions"
+  ],
+  "staff": [
+    {
+      "id": "D1",
+      "name": "Dr Owner",
+      "role": "owner_dentist",
+      "tier": "senior",
+      "specialty": "",
+      "certs": [
+        "implant_surgery",
+        "oral_surgery",
+        "aligner_certified",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "owner_opportunity",
+        "hourly_value": 500
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "D2",
+      "name": "Dr Senior Associate",
+      "role": "associate_dentist",
+      "tier": "senior",
+      "specialty": "",
+      "certs": [
+        "aligner_certified",
+        "nitrous",
+        "oral_surgery"
+      ],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.32,
+        "daily_guarantee": 800,
+        "hourly_value": 400
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "D3",
+      "name": "Dr Junior Associate",
+      "role": "associate_dentist",
+      "tier": "junior",
+      "specialty": "",
+      "certs": [
+        "nitrous"
+      ],
+      "comp": {
+        "type": "pct_collections",
+        "rate": 0.28,
+        "daily_guarantee": 650,
+        "hourly_value": 300
+      },
+      "speed": 1.25,
+      "days": [
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin",
+        "Cantonese"
+      ]
+    },
+    {
+      "id": "H1",
+      "name": "Hygienist A",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia",
+        "nitrous"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 55
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "H2",
+      "name": "Hygienist B",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "local_anesthesia"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 54
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin"
+      ]
+    },
+    {
+      "id": "H3",
+      "name": "Hygienist C",
+      "role": "hygienist",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 52
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "A1",
+      "name": "Assistant A",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 26
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Assistant B",
+      "role": "rda",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 26
+      },
+      "speed": 1.0,
+      "days": [
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Cantonese"
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Assistant C",
+      "role": "dental_assistant",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 20
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Bengali"
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Assistant D",
+      "role": "dental_assistant",
+      "tier": "",
+      "specialty": "",
+      "certs": [
+        "xray"
+      ],
+      "comp": {
+        "type": "hourly",
+        "rate": 20
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Fri",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "F1",
+      "name": "Front Desk A",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 22
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "languages": [
+        "English",
+        "Spanish"
+      ]
+    },
+    {
+      "id": "F2",
+      "name": "Front Desk B",
+      "role": "front_desk",
+      "tier": "",
+      "specialty": "",
+      "certs": [],
+      "comp": {
+        "type": "hourly",
+        "rate": 22
+      },
+      "speed": 1.0,
+      "days": [
+        "Mon",
+        "Wed",
+        "Thu",
+        "Sat"
+      ],
+      "languages": [
+        "English",
+        "Mandarin",
+        "Cantonese"
+      ]
+    }
+  ],
+  "simulation": {
+    "active_patients": 4000,
+    "area": "south_bronx",
+    "overrides": {
+      "outcomes": {
+        "no_show_multiplier": 1.3
+      },
+      "recall": {
+        "delay_multiplier": 1.2
+      }
+    }
+  }
+}

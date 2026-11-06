@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 
 from sadhana.economics.engine import can_perform
 from sadhana.simulator.charts import Condition, PlanItem, _filling_code, _root_canal_code
+from sadhana.simulator.events import Coverage, in_window
 from sadhana.simulator.schedule import Appointment, Calendar, Procedure
 
 if TYPE_CHECKING:
@@ -96,6 +97,8 @@ class TreatmentMixin:
     appts: dict[str, Appointment]
     payload_of: dict[str, Row]
     procedures: list[Procedure]
+    coverage: Coverage
+    scenarios: dict[str, Row]
 
     def push(self, d: date, prio: int, key: str, payload: Row | None = None) -> None: ...
     def book(self, st: _State, d: date, slot: tuple, kind: str, codes: str, column: str, payload: Row) -> Appointment:
@@ -138,8 +141,8 @@ class TreatmentMixin:
     def fee(self, code: str) -> float:
         return float(self.catalog[code]["office_fee"]) * float(self.office["fee_multiplier"])
 
-    def out_of_pocket(self, st: _State, code: str) -> float:
-        payer = self.payers[st.patient.payer]
+    def out_of_pocket(self, st: _State, code: str, d: date) -> float:
+        payer = self.payers[self.coverage.payer_on(st.patient.patient_id, d)]
         ptype = payer["payer_type"]
         if ptype == "self_pay":
             return self.fee(code) * (1 - float(self.office.get("cash_discount", 0)))
@@ -274,7 +277,12 @@ class TreatmentMixin:
         for x in items:
             key = "srp" if x.code in SRP else x.tooth if x.tooth and not x.tooth.startswith("Q") else x.code
             groups.setdefault(key, []).append(x)
-        insured = self.payers[st.patient.payer]["payer_type"] in ("ppo", "premier")
+        insured = self.payers[self.coverage.payer_on(pid, d)]["payer_type"] in ("ppo", "premier")
+        shift = {p: tx.get("accept_shift", 0.0) for p in PRIORITY}
+        for sc in self.scenarios.values():
+            if "accept_shift" in sc and in_window(sc, d):
+                for p, v in sc["accept_shift"].items():
+                    shift[p] += v
         visit_mood = self.rng.gauss(0, 0.5)
         for group in groups.values():
             for x in group:
@@ -284,7 +292,7 @@ class TreatmentMixin:
                     x.status, x.status_on = "referred", today
                 continue
             pri = min((x.priority for x in group), key=PRIORITY.__getitem__)
-            cost = sum(self.out_of_pocket(st, x.code) for x in group) / tx["cost_scale"]
+            cost = sum(self.out_of_pocket(st, x.code, d) for x in group) / tx["cost_scale"]
             cost *= 1 - tx["financing_softens"] * t.financing_propensity
             z = (
                 tx["accept_base"][pri]
@@ -293,6 +301,7 @@ class TreatmentMixin:
                 - tx["repeat_penalty"] * (max(x.times_presented for x in group) - 1)
                 + visit_mood
                 + boost
+                + shift[pri]
             )
             if any(x.code in COSMETIC for x in group):
                 z += tx["cosmetic_interest"] * (t.cosmetic_interest - 0.5)

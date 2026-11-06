@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import csv
 import heapq
-import json
 import random
 from dataclasses import asdict, dataclass, field, replace
 from datetime import date, timedelta
@@ -27,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from sadhana.simulator.charts import Condition, Perio, PlanItem, Tooth
+from sadhana.simulator.events import Coverage, active_scenarios, in_window, load_clock, scenario_window
 from sadhana.simulator.population import SIM_TODAY, Patient, Truth, generate
 from sadhana.simulator.schedule import (
     DAYS,
@@ -106,16 +106,14 @@ class _State:
     left: bool = False
 
 
-def load_clock(configs_dir: Path) -> Row:
-    return json.loads((configs_dir / "simulator" / "clock.json").read_text())
-
-
 def former_patients(
     office: Row, configs_dir: Path, payers: dict[str, Row], current: list[Patient], seed: int = 42
 ) -> tuple[list[Patient], list[Truth]]:
     """Patients who were seen during the window and are gone by SIM_TODAY. Same generator, numbered after the
     current patients, so a PMS export holds both."""
-    share = load_clock(configs_dir)["patient_flow"]["former_patient_share"]
+    clock = load_clock(configs_dir, office)
+    share = clock["patient_flow"]["former_patient_share"]
+    share += sum(s.get("extra_former_share", 0.0) for s in active_scenarios(office, clock).values())
     sub = {**office, "simulation": {**office["simulation"], "active_patients": round(len(current) * share)}}
     patients, truths = generate(sub, configs_dir, payers, seed=seed + 1_000_000)
     p_off = len(current)
@@ -136,11 +134,17 @@ def former_patients(
     return patients, truths
 
 
-def _window_days(start: date, end: date, month_w: Row, recency: float) -> tuple[list[date], list[float]]:
+def _window_days(
+    start: date, end: date, month_w: Row, recency: float, damp: list[tuple[Row, float]] | None = None
+) -> tuple[list[date], list[float]]:
     days = [start + timedelta(days=i) for i in range((end - start).days)]
     cum, total = [], 0.0
     for i, d in enumerate(days):
-        total += month_w[str(d.month)] * (1 + recency * i / len(days))
+        w = month_w[str(d.month)] * (1 + recency * i / len(days))
+        for sc, factor in damp or []:
+            if in_window(sc, d):
+                w *= factor
+        total += w
         cum.append(total)
     return days, cum
 
@@ -160,12 +164,16 @@ class Practice(TreatmentMixin):
         configs_dir: Path,
         former_ids: set[str],
         seed: int,
+        coverage: Coverage | None = None,
     ) -> None:
-        clock = load_clock(configs_dir)
+        clock = load_clock(configs_dir, office)
         self.office = office
+        self.coverage = coverage or Coverage(patients, {})
+        self.scenarios = active_scenarios(office, clock)
         self.flow, self.recall, self.visits, self.out_cfg, self.season, self.tx = (
             clock[k] for k in ("patient_flow", "recall", "visits", "outcomes", "seasonality", "treatment")
         )
+        self.life = clock["life_events"]
         self.rng = random.Random(f"history-{office['office_id']}-{seed}")
         self.start = date(SIM_TODAY.year - clock["history_years"], SIM_TODAY.month, SIM_TODAY.day)
         self.last_bookable = SIM_TODAY + timedelta(days=clock["future_booking_days"])
@@ -198,8 +206,10 @@ class Practice(TreatmentMixin):
         for p, t in zip(patients, truths, strict=True):
             houses.setdefault(p.household_id, []).append((p, t))
         weights = flow["new_patient_month_weights"]
-        current_days, current_cum = _window_days(start, SIM_TODAY, weights, 0.5)
-        former_days, former_cum = _window_days(start, SIM_TODAY - timedelta(days=150), weights, 0.0)
+        damp = [(s, s["new_patient_factor"]) for s in self.scenarios.values() if "new_patient_factor" in s]
+        current_days, current_cum = _window_days(start, SIM_TODAY, weights, 0.5, damp)
+        former_days, former_cum = _window_days(start, SIM_TODAY - timedelta(days=150), weights, 0.0, damp)
+        rivals = [scenario_window(s)[0] for s in self.scenarios.values() if "extra_former_share" in s]
         reasons = flow["leave_reasons"]
         for members in houses.values():
             former = members[0][0].patient_id in former_ids
@@ -214,6 +224,9 @@ class Practice(TreatmentMixin):
             if former:
                 lo = max(joined, start) + timedelta(days=60)
                 left_on = lo + timedelta(days=rng.randint(0, max(0, (SIM_TODAY - lo).days - 14)))
+                if rivals and rng.random() < 0.5:  # a competitor opened: departures bunch up after it
+                    lo = max(lo, rivals[0])
+                    left_on = lo + timedelta(days=rng.randint(0, max(0, (SIM_TODAY - lo).days - 14)))
                 reason = rng.choices(list(reasons), weights=list(reasons.values()))[0]
             for p, t in members:
                 r = "deceased" if former and p.age >= 78 and rng.random() < 0.4 else reason
@@ -251,6 +264,12 @@ class Practice(TreatmentMixin):
         while d < SIM_TODAY:
             self.push(d, PAIN, "pain")
             d = add_months(d, 1)
+
+    def lost_insurance(self, st: _State, d: date) -> bool:
+        """Lost employer coverage and now pays cash: books later and drifts away more often."""
+        pid = st.patient.patient_id
+        now = self.coverage.payer_on(pid, d)
+        return now == "Cash" and any(c <= d for c in self.coverage.changed_on(pid)) and st.patient.payer == "Cash"
 
     # events and bookings
 
@@ -348,6 +367,11 @@ class Practice(TreatmentMixin):
         if st.reminded:
             p_lapse *= recall["office_reminder_lapse_factor"]
             mean_delay *= recall["office_reminder_delay_factor"]
+        if self.lost_insurance(st, today):
+            p_lapse *= self.life["uninsured_lapse_factor"]
+            mean_delay *= self.life["uninsured_delay_factor"]
+        p_lapse *= recall.get("lapse_multiplier", 1.0)
+        mean_delay *= recall.get("delay_multiplier", 1.0)
         if rng.random() < p_lapse:
             st.lapsed_on = due
             return
@@ -359,7 +383,7 @@ class Practice(TreatmentMixin):
             req = date(req.year + 1, 1, rng.randint(3, 20))
         if not adult and req.month in (5, 6, 7, 9) and rng.random() < season["back_to_school_pull_child"]:
             req = date(req.year, 8, rng.randint(1, 28))
-        insured = st.patient.payer not in NO_ANNUAL_MAX
+        insured = self.coverage.payer_on(st.patient.patient_id, req) not in NO_ANNUAL_MAX
         if insured and req.month in (1, 2) and rng.random() < season["year_end_benefit_pull"]:
             pulled = date(req.year - 1, 12, rng.randint(1, 18))
             if st.last_visit is None or (pulled - st.last_visit).days >= 150:
@@ -451,7 +475,8 @@ class Practice(TreatmentMixin):
             lc *= out["emergency_no_show_factor"]
         if (d - date.fromisoformat(a.booked_on)).days > out["booked_far_out_days"]:
             ns *= out["booked_far_out_factor"]
-        ns *= season["no_show_day_of_week"].get(DAYS[d.weekday()], 1.0)
+        ns *= season["no_show_day_of_week"].get(DAYS[d.weekday()], 1.0) * out.get("no_show_multiplier", 1.0)
+        lc *= out.get("late_cancel_multiplier", 1.0)
         if d.weekday() == 4 and d.month in (6, 7, 8):
             ns *= season["summer_friday_factor"]
             cause = "summer_friday"
@@ -594,9 +619,10 @@ def run(
     configs_dir: Path,
     former_ids: set[str],
     seed: int = 42,
+    coverage: Coverage | None = None,
 ) -> tuple[list[Appointment], list[AppointmentTruth], list[Procedure], list[PatientHistory], list[FlowTruth]]:
     """Play out the history. Updates conds, perio and plan in place (found, treated, statuses)."""
-    practice = Practice(office, patients, truths, teeth, conds, perio, plan, configs_dir, former_ids, seed)
+    practice = Practice(office, patients, truths, teeth, conds, perio, plan, configs_dir, former_ids, seed, coverage)
     practice.play()
     return practice.results()
 

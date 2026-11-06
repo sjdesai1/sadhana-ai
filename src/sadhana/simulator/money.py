@@ -17,7 +17,6 @@ guarantor's hidden traits (price sensitivity, income, financing propensity) and 
 from __future__ import annotations
 
 import csv
-import json
 import random
 import re
 from dataclasses import asdict, dataclass
@@ -26,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sadhana.economics.engine import allowed_amount
+from sadhana.simulator.events import Coverage, active_scenarios, in_window, load_clock
 from sadhana.simulator.population import SIM_TODAY
 from sadhana.simulator.schedule import add_months
 from sadhana.simulator.treatment import load_catalog
@@ -109,10 +109,6 @@ class Balance:
     on_payment_plan: bool
 
 
-def load_billing(configs_dir: Path) -> Row:
-    return json.loads((configs_dir / "simulator" / "clock.json").read_text())["billing"]
-
-
 def _parse_freq(text: str) -> tuple[int, int | None, bool] | None:
     """'2 per 12 months' -> (2, 12, False); '1 per tooth lifetime' -> (1, None, True)."""
     if not text:
@@ -127,7 +123,12 @@ class Biller:
     def __init__(self, sim: Sim, configs_dir: Path, seed: int) -> None:
         self.sim = sim
         self.office = sim.office
-        self.cfg = load_billing(configs_dir)
+        clock = load_clock(configs_dir, sim.office)
+        self.cfg = clock["billing"]
+        self.wrong_payer = clock["life_events"]["first_claim_wrong_payer"]
+        self.cuts = [s for s in active_scenarios(sim.office, clock).values() if "allowed_factor" in s]
+        self.coverage = sim.coverage or Coverage(sim.patients, {})
+        self.billed_since_change: set[str] = set()
         self.rng = random.Random(f"money-{sim.office['office_id']}-{seed}")
         self.catalog = load_catalog(configs_dir)
         state = sim.office["state"]
@@ -138,8 +139,9 @@ class Biller:
         self.patients = {p.patient_id: p for p in sim.patients}
         self.truths = {t.patient_id: t for t in sim.truths}
         self.joined = {f.patient_id: date.fromisoformat(f.joined_on) for f in sim.flows}
-        self.used: dict[tuple[str, int, str], float] = {}
-        self.deductible_met: dict[tuple[str, int, str], float] = {}
+        # (patient, year, rank, payer): a new plan mid-year starts its own max and deductible
+        self.used: dict[tuple[str, int, str, str], float] = {}
+        self.deductible_met: dict[tuple[str, int, str, str], float] = {}
         self.history: dict[tuple[str, str, str], list[date]] = {}
         self.ledger: list[LedgerLine] = []
         self.claims: list[Claim] = []
@@ -186,7 +188,7 @@ class Biller:
         start = self.joined.get(pid, date.min)
         if cls == "major" and waiting and start > self.sim_start and d < add_months(start, waiting):
             return 0.0, "waiting period"
-        key = (pid, d.year, rank)
+        key = (pid, d.year, rank, payer_name)
         base = allowed
         if cls != "preventive":
             ded = float(payer["deductible"]) - self.deductible_met.get(key, 0.0)
@@ -217,15 +219,24 @@ class Biller:
         pid = appt.patient_id
         patient = self.patients[pid]
         d = date.fromisoformat(appt.date)
-        payer = self.payers[patient.payer]
+        payer_name = self.coverage.payer_on(pid, d)
+        payer = self.payers[payer_name]
         ptype = payer["payer_type"]
-        second = patient.secondary_payer if patient.secondary_payer in self.payers else ""
+        second = patient.secondary_payer if patient.secondary_payer in self.payers and ptype in INSURED else ""
+        changed = [c for c in self.coverage.changed_on(pid) if c <= d]
+        stale = bool(changed) and pid not in self.billed_since_change
+        if stale:
+            self.billed_since_change.add(pid)
         g = self.guarantor(pid)
         lines: list[LedgerLine] = []
         for p in procs:
             proc = self.catalog[p.code]
             fee = self.fee(p.code)
             allowed, basis = allowed_amount(proc, payer, self.office, self.medicaid)
+            for cut in self.cuts:
+                cut_applies = payer_name == cut["payer"] and in_window(cut, d) and basis == "ppo fee schedule"
+                if allowed is not None and cut_applies:
+                    allowed = round(allowed * cut["allowed_factor"], 2)
             primary = secondary = 0.0
             note = ""
             if ptype == "self_pay":
@@ -242,7 +253,7 @@ class Biller:
                 if ptype == "medicaid":
                     primary = allowed
                 else:
-                    primary, note = self.benefit(pid, patient.payer, "primary", p.code, allowed, d)
+                    primary, note = self.benefit(pid, payer_name, "primary", p.code, allowed, d)
                     if second and patient.age >= 18:
                         normal, _ = self.benefit(pid, second, "secondary", p.code, allowed, d)
                         secondary = round(min(normal, allowed - primary), 2)
@@ -260,7 +271,7 @@ class Biller:
                     p.code,
                     p.tooth,
                     p.provider_id,
-                    patient.payer,
+                    payer_name,
                     fee,
                     round(allowed_v, 2),
                     primary,
@@ -271,21 +282,25 @@ class Biller:
                 )
             )
         # claims: one per payer per visit
-        for rank, payer_name, field in (
-            ("primary", patient.payer, "primary_paid"),
+        for rank, claim_payer, field in (
+            ("primary", payer_name, "primary_paid"),
             ("secondary", second, "secondary_paid"),
         ):
             expected = round(sum(getattr(x, field) for x in lines), 2)
-            if not payer_name or ptype == "self_pay" or (rank == "secondary" and expected == 0):
+            if not claim_payer or ptype == "self_pay" or (rank == "secondary" and expected == 0):
                 continue
             billed = round(sum(x.fee for x in lines), 2)
             if expected == 0 and all(x.note in ("cash", "elective") for x in lines):
                 continue
-            kind = "medicaid" if self.payers[payer_name]["payer_type"] == "medicaid" else "commercial"
+            kind = "medicaid" if self.payers[claim_payer]["payer_type"] == "medicaid" else "commercial"
             lag = cfg["pay_days"][kind]
             paid_on = d + timedelta(days=rng.randint(*lag))
             status, reason, paid = "paid", "", expected
-            if rng.random() < cfg["first_pass_denial"][kind]:
+            if rank == "primary" and stale and rng.random() < self.wrong_payer:
+                # insurance changed and the office still had the old card on file
+                status, reason = "paid_after_resubmit", "coverage terminated"
+                paid_on += timedelta(days=rng.randint(*cfg["resubmit_days"]))
+            elif rng.random() < cfg["first_pass_denial"][kind]:
                 reason = rng.choice(cfg["denial_reasons"])
                 if rng.random() < cfg["resubmit_success"]:
                     status = "paid_after_resubmit"
@@ -304,7 +319,7 @@ class Biller:
                     cid,
                     appt.appt_id,
                     pid,
-                    payer_name,
+                    claim_payer,
                     rank,
                     appt.date,
                     status,
@@ -415,10 +430,10 @@ class Biller:
         for a in self.sim.appointments:
             if a.status not in ("late_cancel", "no_show") or causes.get(a.appt_id) in self.cfg["fee_waived_for"]:
                 continue
-            patient = self.patients[a.patient_id]
-            if self.payers[patient.payer]["payer_type"] == "medicaid":
-                continue
             d = date.fromisoformat(a.status_on)
+            payer_name = self.coverage.payer_on(a.patient_id, d)
+            if self.payers[payer_name]["payer_type"] == "medicaid":
+                continue
             g = self.guarantor(a.patient_id)
             collected = self.rng.random() < float(policy.get("collection_rate", 0))
             self.ledger.append(
@@ -430,7 +445,7 @@ class Biller:
                     "CXL",
                     "",
                     "",
-                    patient.payer,
+                    payer_name,
                     fee,
                     fee,
                     0,
@@ -448,37 +463,25 @@ class Biller:
     # what is left on SIM_TODAY
 
     def benefits(self) -> list[Benefit]:
+        """Every plan-year with claims, plus this year's row for every current insured patient (unused benefits)."""
+        keys = set(self.used)
+        for p in self.sim.patients:
+            if p.patient_id not in self.sim.current_ids:
+                continue
+            for rank, name in (("primary", p.payer), ("secondary", p.secondary_payer)):
+                if name in self.payers and self.payers[name]["payer_type"] in INSURED:
+                    if rank == "secondary" and self.payers[p.payer]["payer_type"] not in INSURED:
+                        continue
+                    keys.add((p.patient_id, SIM_TODAY.year, rank, name))
         rows = []
-        insured = {
-            p.patient_id: p
-            for p in self.sim.patients
-            if self.payers[p.payer]["payer_type"] in INSURED and p.patient_id in self.sim.current_ids
-        }
-        years = range(SIM_TODAY.year - 3, SIM_TODAY.year + 1)
-        for pid, p in insured.items():
-            for y in years:
-                for rank, name in (("primary", p.payer), ("secondary", p.secondary_payer)):
-                    if not name or name not in self.payers:
-                        continue
-                    key = (pid, y, rank)
-                    if key not in self.used and y != SIM_TODAY.year:
-                        continue
-                    payer = self.payers[name]
-                    mx = float(payer["annual_max"])
-                    used = round(self.used.get(key, 0.0), 2)
-                    rows.append(
-                        Benefit(
-                            pid,
-                            y,
-                            name,
-                            rank,
-                            mx,
-                            used,
-                            round(mx - used, 2),
-                            float(payer["deductible"]),
-                            round(self.deductible_met.get(key, 0.0), 2),
-                        )
-                    )
+        for pid, y, rank, name in sorted(keys):
+            if pid not in self.sim.current_ids:
+                continue
+            payer = self.payers[name]
+            mx = float(payer["annual_max"])
+            used = round(self.used.get((pid, y, rank, name), 0.0), 2)
+            met = round(self.deductible_met.get((pid, y, rank, name), 0.0), 2)
+            rows.append(Benefit(pid, y, name, rank, mx, used, round(mx - used, 2), float(payer["deductible"]), met))
         return rows
 
     def balances(self) -> list[Balance]:
