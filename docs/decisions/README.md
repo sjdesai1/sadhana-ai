@@ -10,3 +10,4 @@ a changed decision gets a new record that supersedes the old one.
 | [0003](0003-dagster-over-airflow.md) | Dagster for the nightly pipeline, Postgres queue for same-day events | Accepted |
 | [0004](0004-office-is-a-config.md) | Every office is a config file; state rules live in their own file | Accepted |
 | [0005](0005-opportunity-cost-routing.md) | Dentist time carries an hourly value when choosing who does a procedure | Accepted |
+| [0006](0006-hidden-truth-vs-observed.md) | Simulated patients keep hidden truth apart from what a PMS records | Accepted |

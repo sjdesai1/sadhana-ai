@@ -1,0 +1,46 @@
+{
+  "source": "Modeled from NYC census patterns by neighborhood; ranges are approximate and tunable",
+  "areas": {
+    "midtown_manhattan": {
+      "zips": [
+        {"zip": "10036", "neighborhood": "Hell's Kitchen", "income_tier": "middle", "weight": 0.22},
+        {"zip": "10019", "neighborhood": "Midtown West", "income_tier": "upper", "weight": 0.18},
+        {"zip": "10001", "neighborhood": "Chelsea / Penn", "income_tier": "middle", "weight": 0.14},
+        {"zip": "10018", "neighborhood": "Garment District", "income_tier": "middle", "weight": 0.10},
+        {"zip": "10011", "neighborhood": "Chelsea", "income_tier": "upper", "weight": 0.12},
+        {"zip": "10023", "neighborhood": "Upper West Side", "income_tier": "upper", "weight": 0.12},
+        {"zip": "10029", "neighborhood": "East Harlem", "income_tier": "low", "weight": 0.06},
+        {"zip": "07030", "neighborhood": "Hoboken commuters", "income_tier": "upper", "weight": 0.06}
+      ],
+      "languages": {"English": 0.72, "Spanish": 0.11, "Mandarin": 0.04, "Cantonese": 0.02, "Russian": 0.03,
+                    "Korean": 0.03, "Bengali": 0.02, "Haitian Creole": 0.01, "Hindi": 0.02},
+      "head_age_bands": {"18-34": 0.40, "35-54": 0.35, "55-64": 0.13, "65+": 0.12},
+      "household_size": {"1": 0.46, "2": 0.33, "3": 0.11, "4": 0.08, "5": 0.02},
+      "employer_insured_share_note": "high commuter and office-worker share"
+    },
+    "queens": {
+      "zips": [
+        {"zip": "11354", "neighborhood": "Flushing", "income_tier": "low", "weight": 0.16},
+        {"zip": "11355", "neighborhood": "Flushing South", "income_tier": "middle", "weight": 0.10},
+        {"zip": "11373", "neighborhood": "Elmhurst", "income_tier": "low", "weight": 0.14},
+        {"zip": "11368", "neighborhood": "Corona", "income_tier": "low", "weight": 0.12},
+        {"zip": "11372", "neighborhood": "Jackson Heights", "income_tier": "middle", "weight": 0.12},
+        {"zip": "11375", "neighborhood": "Forest Hills", "income_tier": "upper", "weight": 0.12},
+        {"zip": "11101", "neighborhood": "Long Island City", "income_tier": "upper", "weight": 0.08},
+        {"zip": "11432", "neighborhood": "Jamaica", "income_tier": "low", "weight": 0.10},
+        {"zip": "11377", "neighborhood": "Woodside", "income_tier": "middle", "weight": 0.06}
+      ],
+      "languages": {"English": 0.38, "Spanish": 0.24, "Mandarin": 0.10, "Cantonese": 0.06, "Bengali": 0.07,
+                    "Korean": 0.04, "Russian": 0.04, "Haitian Creole": 0.03, "Hindi": 0.02, "Nepali": 0.02},
+      "head_age_bands": {"18-34": 0.30, "35-54": 0.38, "55-64": 0.16, "65+": 0.16},
+      "household_size": {"1": 0.24, "2": 0.28, "3": 0.20, "4": 0.18, "5": 0.10}
+    }
+  },
+  "income_tier_payer_multipliers": {
+    "low": {"self_pay": 1.3, "ppo": 0.7, "premier": 0.4, "medicaid": 3.0},
+    "middle": {"self_pay": 1.0, "ppo": 1.0, "premier": 1.0, "medicaid": 0.6},
+    "upper": {"self_pay": 0.9, "ppo": 1.1, "premier": 1.6, "medicaid": 0.05}
+  },
+  "age65_payer_multipliers": {"self_pay": 2.5, "ppo": 0.6, "premier": 0.6, "medicaid": 1.0},
+  "dual_coverage_rate": 0.08
+}

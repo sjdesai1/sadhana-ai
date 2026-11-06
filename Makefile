@@ -1,5 +1,5 @@
 # Shortcuts. Each target is just the docker / python command written next to it.
-.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster
+.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim
 
 setup:          ## one-time: create .env, the local Python environment and the git hooks
 	@test -f .env || cp .env.example .env
@@ -52,3 +52,7 @@ economics:      ## build economics tables for every office into outputs/ (make e
 
 dagster:        ## Dagster UI locally at http://localhost:3000 without Docker
 	uv run dagster dev
+
+# ---- milestone 2: simulator ----
+sim:            ## synthetic patients for every office into outputs/<office>/sim (make sim o=solo_manhattan seed=7)
+	uv run python -m sadhana.simulator $(o) --seed $(or $(seed),42)
