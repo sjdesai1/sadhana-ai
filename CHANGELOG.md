@@ -5,6 +5,8 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+## [0.2.0] - Milestone 2: simulator
+
 ### Added
 - Simulator, part 1: synthetic patient population per office (`make sim`). Households sharing ZIP, language,
   insurance and behavior; NYC neighborhood income tiers; insurance raked to each office's payer mix; consent,

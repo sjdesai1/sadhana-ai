@@ -5,13 +5,14 @@ The single place to pick up the build. Updated in every PR.
 ## Where things stand
 
 - Milestone 0 (local stack, CI/CD) and 1 (economics engine): done, released as 0.1.0
-- Milestone 2 (simulator): done, parts 1 to 5
-- Last updated with: simulator part 5, life events, scenarios and hidden test offices
+- Milestone 2 (simulator): done, parts 1 to 5, released as 0.2.0
+- Milestone 3 (data layer and sync): next
+- Last updated with: release 0.2.0
 
 ## Next
 
-1. Release 0.2.0 (simulator milestone), then the spec's build order: sync and adapters, benefits engine, nightly models, optimizer, agents, evals,
-   reports, demo mode, pilot readiness
+1. The spec's build order, starting with milestone 3 (data layer and sync), then the benefits engine, nightly
+   models, optimizer, agents, evals, reports, demo mode and pilot readiness
 2. Once the product runs end to end: point the sync at Open Dental's demo database and fix what breaks
 3. Code walkthrough of every milestone at the end
 
