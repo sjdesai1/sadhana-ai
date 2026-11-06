@@ -21,6 +21,10 @@ each minor version is a finished milestone.
   hygienist and visiting specialist routing by license and tier; referrals for work the office cannot do; root
   canal, implant, lab and aligner sequencing; emergencies; procedures ledger; one-call `build.simulate`
 
+- `docs/STATUS.md`: where the build stands, what is next, latest benchmarks; updated in every PR
+- Decision record 0007: what agents do alone vs with approval, doorbell and watchdog escalation, versioned message
+  templates, per-office LLM budget
+
 ### Fixed
 - Docker image build: copy source before installing, since dependencies are read from requirements.txt
 - Dagster test uses resolve_job_def instead of the deprecated job lookup
