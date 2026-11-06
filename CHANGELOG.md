@@ -5,6 +5,14 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+### Added
+- Data layer: canonical tables in one Postgres schema per office, with row-level security and an app role that
+  cannot bypass it; office-scoped sessions; bookkeeping of offices and sync runs
+- Sync: adapter interface, simulator adapter (observed data only, never hidden truth), full-refresh load with
+  COPY in one transaction; `make sync` and `make db`
+- CI runs a Postgres service; database tests are required there and skip locally without `make up`
+- Decision record 0009: full-refresh sync, tables from code, migrations before real data
+
 ## [0.2.0] - Milestone 2: simulator
 
 ### Added

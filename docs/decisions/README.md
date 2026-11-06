@@ -13,3 +13,4 @@ a changed decision gets a new record that supersedes the old one.
 | [0006](0006-hidden-truth-vs-observed.md) | Simulated patients keep hidden truth apart from what a PMS records | Accepted |
 | [0007](0007-agent-approvals-and-escalation.md) | What agents do alone vs with approval; doorbell, watchdog, templates, budgets | Accepted |
 | [0008](0008-hidden-test-offices.md) | Hidden test offices are only ever tested on, never tuned on | Accepted |
+| [0009](0009-full-refresh-sync.md) | Full-refresh sync in one transaction; tables from code, migrations before v3 | Accepted |
