@@ -18,12 +18,12 @@ from __future__ import annotations
 
 import csv
 import random
-import re
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from sadhana.benefits.rules import parse_freq
 from sadhana.economics.engine import allowed_amount
 from sadhana.simulator.events import Coverage, active_scenarios, in_window, load_clock
 from sadhana.simulator.population import SIM_TODAY
@@ -109,16 +109,6 @@ class Balance:
     on_payment_plan: bool
 
 
-def _parse_freq(text: str) -> tuple[int, int | None, bool] | None:
-    """'2 per 12 months' -> (2, 12, False); '1 per tooth lifetime' -> (1, None, True)."""
-    if not text:
-        return None
-    m = re.match(r"(\d+) per (?:(tooth|quad) )?(?:per )?(?:(\d+) months|lifetime)", text)
-    if not m:
-        return None
-    return int(m.group(1)), int(m.group(3)) if m.group(3) else None, bool(m.group(2))
-
-
 class Biller:
     def __init__(self, sim: Sim, configs_dir: Path, seed: int) -> None:
         self.sim = sim
@@ -167,7 +157,7 @@ class Biller:
     # insurance rules
 
     def frequency_ok(self, pid: str, code: str, tooth: str, d: date) -> bool:
-        rule = _parse_freq(self.catalog[code].get("freq_limit", ""))
+        rule = parse_freq(self.catalog[code].get("freq_limit", ""))
         if rule is None:
             return True
         count, months, per_tooth = rule
@@ -257,7 +247,7 @@ class Biller:
                     if second and patient.age >= 18:
                         normal, _ = self.benefit(pid, second, "secondary", p.code, allowed, d)
                         secondary = round(min(normal, allowed - primary), 2)
-                key = (pid, p.code, p.tooth if (_parse_freq(proc.get("freq_limit", "")) or (0, 0, False))[2] else "")
+                key = (pid, p.code, p.tooth if (parse_freq(proc.get("freq_limit", "")) or (0, 0, False))[2] else "")
                 self.history.setdefault(key, []).append(d)
             patient_part = round(allowed_v - primary - secondary, 2)
             if ptype == "medicaid" and allowed is not None and note == "":

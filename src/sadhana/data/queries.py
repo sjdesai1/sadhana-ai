@@ -14,6 +14,8 @@ from typing import Any
 
 from sqlalchemy import Connection, text
 
+from sadhana.benefits.rules import add_months
+
 Row = dict[str, Any]
 OPEN = ("proposed", "accepted")
 
@@ -157,3 +159,63 @@ def summary(conn: Connection, today: date, fees: dict[str, float]) -> Row:
         "unused_benefits_value": round(sum(r["remaining"] for r in benefits), 2),
         "benefits_at_stake_value": round(sum(r["at_stake"] for r in benefits), 2),
     }
+
+
+PAYER_SQL = """
+WITH lines AS (
+    SELECT payer, patient_id, appt_id, fee, allowed, primary_paid, secondary_paid, patient_portion, write_off
+    FROM ledger
+    WHERE date >= :since AND date < :today AND code NOT IN ('FIN', 'BAD', 'CXL')
+),
+claim_stats AS (
+    SELECT payer,
+           count(*) AS claims,
+           count(*) FILTER (WHERE denial_reason IS NOT NULL AND denial_reason <> '') AS denied,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY paid_on - submitted_on)
+               FILTER (WHERE paid_on IS NOT NULL) AS median_days_to_pay,
+           coalesce(sum(expected) FILTER (WHERE status = 'pending'), 0) AS pending
+    FROM claims
+    WHERE rank = 'primary' AND submitted_on >= :since AND submitted_on < :today
+    GROUP BY payer
+)
+SELECT l.payer,
+       count(DISTINCT l.patient_id) AS patients,
+       count(DISTINCT l.appt_id) AS visits,
+       sum(l.fee) AS gross,
+       sum(l.allowed) AS allowed,
+       sum(l.primary_paid + l.secondary_paid) AS insurance_paid,
+       sum(l.patient_portion) AS patient_portion,
+       sum(l.fee - l.allowed) AS contractual_write_off,
+       c.claims, c.denied, c.median_days_to_pay, c.pending
+FROM lines l
+LEFT JOIN claim_stats c USING (payer)
+GROUP BY l.payer, c.claims, c.denied, c.median_days_to_pay, c.pending
+ORDER BY gross DESC
+"""
+
+
+def payer_scorecard(conn: Connection, today: date, months: int = 12) -> list[Row]:
+    """How each payer treats this office over the last `months` months: volume, what it allows against the
+    office's fee, write-offs, denials and how fast it pays. The basis for fee negotiations and payer mix."""
+    since = add_months(today, -months)
+    out = []
+    for r in conn.execute(text(PAYER_SQL), {"since": since, "today": today}).mappings():
+        gross = float(r["gross"] or 0)
+        claims = r["claims"] or 0
+        out.append(
+            {
+                "payer": r["payer"],
+                "patients": r["patients"],
+                "visits": r["visits"],
+                "gross": round(gross, 2),
+                "allowed_share_of_fee": round(float(r["allowed"] or 0) / gross, 3) if gross else 0.0,
+                "write_off_share": round(float(r["contractual_write_off"] or 0) / gross, 3) if gross else 0.0,
+                "insurance_paid": round(float(r["insurance_paid"] or 0), 2),
+                "patient_portion": round(float(r["patient_portion"] or 0), 2),
+                "claims": claims,
+                "denial_rate": round((r["denied"] or 0) / claims, 3) if claims else 0.0,
+                "median_days_to_pay": float(r["median_days_to_pay"]) if r["median_days_to_pay"] is not None else None,
+                "insurance_pending": round(float(r["pending"] or 0), 2),
+            }
+        )
+    return out
