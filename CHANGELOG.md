@@ -6,6 +6,17 @@ each minor version is a finished milestone.
 ## [Unreleased]
 
 ### Added
+- Benefits engine: each patient's max and deductible left, coverage by class, next eligible dates from frequency
+  limits, estimates for open treatment in claim order (deductible, coverage, annual max, secondary insurance),
+  and year-end phasing that moves non-urgent work past this year's max to January
+- Year-end list: active insured patients whose open treatment would use benefits expiring Dec 31
+- Payer scorecard: volume, allowed share of fee, write-offs, denial rate, days to pay, insurance owed per payer
+- API: `/patients/{patient_id}/benefits`, `/year-end`, `/payers` under each office
+- Frequency rules moved to `benefits/rules.py`, shared by the product and the simulator
+
+## [0.3.0] - Milestone 3: data layer and sync
+
+### Added
 - Data layer: canonical tables in one Postgres schema per office, with row-level security and an app role that
   cannot bypass it; office-scoped sessions; bookkeeping of offices and sync runs
 - Sync: adapter interface, simulator adapter (observed data only, never hidden truth), full-refresh load with

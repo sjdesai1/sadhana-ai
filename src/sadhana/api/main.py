@@ -9,6 +9,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 
 from sadhana import __version__
+from sadhana.benefits.engine import BenefitsEngine
 from sadhana.config import settings
 from sadhana.data import queries
 from sadhana.data.db import get_engine, office_session
@@ -92,3 +93,29 @@ def office_unused_benefits(office_id: str, limit: int = Query(50, ge=1, le=1000)
     fees = queries.office_fees(office, settings.configs_dir)
     with office_session(engine(), office_id) as conn:
         return queries.unused_benefits(conn, today, fees, limit)
+
+
+@app.get("/offices/{office_id}/payers")
+def office_payers(office_id: str, months: int = Query(12, ge=1, le=36)) -> list[dict[str, Any]]:
+    _, today = _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        return queries.payer_scorecard(conn, today, months)
+
+
+@app.get("/offices/{office_id}/year-end")
+def office_year_end(office_id: str, limit: int = Query(50, ge=1, le=1000)) -> list[dict[str, Any]]:
+    office, today = _synced_office(office_id)
+    benefits = BenefitsEngine(office, settings.configs_dir, today)
+    with office_session(engine(), office_id) as conn:
+        return benefits.year_end(conn, limit)
+
+
+@app.get("/offices/{office_id}/patients/{patient_id}/benefits")
+def patient_benefits(office_id: str, patient_id: str) -> dict[str, Any]:
+    office, today = _synced_office(office_id)
+    benefits = BenefitsEngine(office, settings.configs_dir, today)
+    with office_session(engine(), office_id) as conn:
+        result = benefits.patient(conn, patient_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"unknown patient {patient_id}")
+    return result
