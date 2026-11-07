@@ -4,43 +4,18 @@ Needs Postgres: locally `make up` first (these tests skip without it); CI runs a
 SADHANA_REQUIRE_DB=1 so they can never be skipped there.
 """
 
-import os
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
 
 from sadhana.config import settings
-from sadhana.data.db import get_engine, office_session
+from sadhana.data.db import office_session
 from sadhana.simulator.build import write
 from sadhana.sync.adapters import SimulatorAdapter
 from sadhana.sync.run import sync_office
 
 TRUTH_COLUMNS = {"true_stage", "diagnosed", "recall_compliance", "no_show_rate", "cause", "left_reason", "age"}
-
-
-@pytest.fixture(scope="module")
-def engine():
-    eng = get_engine()
-    try:
-        with eng.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except OperationalError:
-        if os.environ.get("SADHANA_REQUIRE_DB") == "1":
-            raise
-        pytest.skip("Postgres is not running (make up)")
-    return eng
-
-
-@pytest.fixture(scope="module")
-def synced(engine, solo_sim, group_sim, tmp_path_factory):
-    counts = {}
-    for sim in (solo_sim, group_sim):
-        office_id = sim.office["office_id"]
-        out = write(sim, tmp_path_factory.mktemp(office_id))
-        counts[office_id] = sync_office(engine, SimulatorAdapter(office_id, out, settings.configs_dir))
-    return counts
 
 
 def test_row_counts_match_the_source(synced, solo_sim) -> None:
