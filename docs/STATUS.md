@@ -12,13 +12,12 @@ The single place to pick up the build. Updated in every PR.
 
 - Milestone 0 (local stack, CI/CD) and 1 (economics engine): done, released as 0.1.0
 - Milestone 2 (simulator): done, parts 1 to 5, released as 0.2.0
-- Milestone 3 (data layer and sync): part 1 done (canonical tables, row-level security, sync); part 2 next
-- Last updated with: milestone 3 part 1, canonical tables and sync
+- Milestone 3 (data layer and sync): done (canonical tables, row-level security, sync, nightly job, first API endpoints)
+- Last updated with: milestone 3 part 2, nightly sync and API endpoints
 
 ## Next
 
-1. Milestone 3 part 2: nightly Dagster sync ahead of the economics tables; first API endpoints on the database
-   (office summary, overdue patients, unscheduled treatment, unused benefits)
+1. Release 0.3.0 (data layer milestone)
 2. Then the spec's build order: benefits engine, nightly models, optimizer, agents, evals, reports, demo mode,
    pilot readiness (v1)
 3. v2 and v3 as in the roadmap; code walkthrough of every milestone at the end
@@ -52,8 +51,9 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 
 ## Running locally
 
-- `make sim` builds the demo offices; `make up` starts Postgres and the stack; `make sync` loads them;
-  `make db` opens a SQL prompt
+- `make sim` builds the demo offices; `make up` starts Postgres and the stack (run it again after code changes
+  so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
+- API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens

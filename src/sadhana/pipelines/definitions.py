@@ -1,8 +1,10 @@
 """Dagster definitions. Nightly work is modeled as data assets that depend on each other.
 
-Today: economics tables for every office. Coming: sync, features, scores, benefits,
-the 90-day plan, and reports, each as its own asset downstream of the last.
+Today: sync every demo office into Postgres, and the economics tables (built from config, so they do not wait
+on the sync). Coming: features, scores, benefits, the 90-day plan and reports, each downstream of the sync.
 """
+
+from pathlib import Path
 
 from dagster import (
     AssetExecutionContext,
@@ -13,11 +15,27 @@ from dagster import (
 )
 
 from sadhana.config import settings
+from sadhana.data.db import get_engine
 from sadhana.economics.engine import build, load_inputs, write_outputs
+from sadhana.sync.adapters import SimulatorAdapter
+from sadhana.sync.run import sync_office
 
 
 def office_ids() -> list[str]:
     return sorted(p.stem for p in (settings.configs_dir / "offices").glob("*.json"))
+
+
+@asset(group_name="sync")
+def office_sync(context: AssetExecutionContext) -> None:
+    """Every demo office's data, refreshed from its source into its own Postgres schema."""
+    engine = get_engine()
+    total = 0
+    for office_id in office_ids():
+        adapter = SimulatorAdapter(office_id, Path(settings.outputs_dir) / office_id / "sim", settings.configs_dir)
+        counts = sync_office(engine, adapter)
+        total += sum(counts.values())
+        context.log.info(f"{office_id}: {sum(counts.values())} rows")
+    context.add_output_metadata({"offices": len(office_ids()), "rows": total})
 
 
 @asset(group_name="economics")
@@ -33,10 +51,10 @@ def economics_tables(context: AssetExecutionContext) -> None:
     context.add_output_metadata({"offices": len(counts), "rows": sum(counts.values())})
 
 
-nightly_job = define_asset_job("nightly", selection=[economics_tables])
+nightly_job = define_asset_job("nightly", selection=[office_sync, economics_tables])
 
 defs = Definitions(
-    assets=[economics_tables],
+    assets=[office_sync, economics_tables],
     jobs=[nightly_job],
     schedules=[ScheduleDefinition(job=nightly_job, cron_schedule="0 2 * * *", execution_timezone="America/New_York")],
 )

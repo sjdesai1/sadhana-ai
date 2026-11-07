@@ -12,6 +12,9 @@ each minor version is a finished milestone.
   COPY in one transaction; `make sync` and `make db`
 - CI runs a Postgres service; database tests are required there and skip locally without `make up`
 - Decision record 0009: full-refresh sync, tables from code, migrations before real data
+- Nightly Dagster job syncs every demo office into Postgres
+- API on the database: office summary, overdue patients, unscheduled treatment, unused benefits; office-scoped
+  queries in `data/queries.py`; 404 for offices with no data, 503 when the database is down
 
 ## [0.2.0] - Milestone 2: simulator
 
