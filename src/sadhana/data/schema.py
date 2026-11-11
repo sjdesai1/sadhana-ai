@@ -267,6 +267,18 @@ balances = Table(
     Column("on_payment_plan", Boolean),
 )
 
+scores = Table(  # written by the nightly models, not by the sync
+    "scores",
+    metadata,
+    _office(),
+    Column("model", String(32), primary_key=True),
+    Column("entity_id", String(16), primary_key=True),  # appointment or patient, depending on the model
+    Column("patient_id", String(16), index=True),
+    Column("score", Numeric(6, 4), nullable=False),
+    Column("model_version", String(16)),
+    Column("scored_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 offices = Table(
     "offices",
     meta,
@@ -276,6 +288,18 @@ offices = Table(
     Column("source", String(32)),  # simulator, opendental, ...
     Column("config", JSON),
     Column("last_synced_at", DateTime(timezone=True)),
+)
+
+model_runs = Table(
+    "model_runs",
+    meta,
+    Column("run_id", BigInteger, primary_key=True, autoincrement=True),
+    Column("office_id", String(64), nullable=False, index=True),
+    Column("model", String(32), nullable=False),
+    Column("model_version", String(16)),
+    Column("trained_at", DateTime(timezone=True), server_default=func.now()),
+    Column("as_of", Date),
+    Column("metrics", JSON),
 )
 
 sync_runs = Table(
@@ -291,7 +315,7 @@ sync_runs = Table(
     Column("error", Text),
 )
 
-# load order respects nothing but readability: there are no foreign keys, a full refresh replaces everything
+# tables the sync replaces; there are no foreign keys, a full refresh reloads everything
 OFFICE_TABLES = [
     staff,
     patients,

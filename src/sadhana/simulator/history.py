@@ -473,8 +473,9 @@ class Practice(TreatmentMixin):
         if a.kind == "emergency":
             ns *= out["emergency_no_show_factor"]
             lc *= out["emergency_no_show_factor"]
-        if (d - date.fromisoformat(a.booked_on)).days > out["booked_far_out_days"]:
-            ns *= out["booked_far_out_factor"]
+        # the further ahead a visit was booked, the more likely it is forgotten or no longer convenient
+        lead = (d - date.fromisoformat(a.booked_on)).days
+        ns *= 1 + out["lead_time_slope"] * min(lead, 180) / 90
         ns *= season["no_show_day_of_week"].get(DAYS[d.weekday()], 1.0) * out.get("no_show_multiplier", 1.0)
         lc *= out.get("late_cancel_multiplier", 1.0)
         if d.weekday() == 4 and d.month in (6, 7, 8):

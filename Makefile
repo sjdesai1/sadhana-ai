@@ -1,5 +1,5 @@
 # Shortcuts. Each target is just the docker / python command written next to it.
-.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim sync db
+.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim sync db models
 
 setup:          ## one-time: create .env, the local Python environment and the git hooks
 	@test -f .env || cp .env.example .env
@@ -63,3 +63,7 @@ sync:           ## load make sim output into Postgres, one schema per office (ma
 
 db:             ## open a SQL prompt on the local database
 	docker compose exec postgres psql -U sadhana sadhana
+
+# ---- milestone 5: nightly models ----
+models:         ## train, test and score the models for every synced office (make sync first)
+	uv run python -m sadhana.models $(o)
