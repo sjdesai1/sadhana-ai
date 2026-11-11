@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from sqlalchemy import Connection, Engine, create_engine, text
 
 from sadhana.config import settings
-from sadhana.data.schema import OFFICE_TABLES, meta, metadata
+from sadhana.data.schema import meta, metadata
 
 APP_ROLE = "sadhana_app"
 _SAFE = re.compile(r"^[a-z0-9_]+$")
@@ -45,7 +45,7 @@ def setup_shared(conn: Connection) -> None:
     if not is_super:
         conn.execute(text(f"GRANT {APP_ROLE} TO current_user"))
     conn.execute(text(f"GRANT USAGE ON SCHEMA sadhana_meta TO {APP_ROLE}"))
-    conn.execute(text(f"GRANT SELECT ON sadhana_meta.offices TO {APP_ROLE}"))
+    conn.execute(text(f"GRANT SELECT ON sadhana_meta.offices, sadhana_meta.model_runs TO {APP_ROLE}"))
 
 
 def setup_office(conn: Connection, office_id: str) -> str:
@@ -54,7 +54,7 @@ def setup_office(conn: Connection, office_id: str) -> str:
     setup_shared(conn)
     conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
     metadata.create_all(conn.execution_options(schema_translate_map={None: schema}))
-    for table in OFFICE_TABLES:
+    for table in metadata.sorted_tables:
         name = f"{schema}.{table.name}"
         conn.execute(text(f"ALTER TABLE {name} ENABLE ROW LEVEL SECURITY"))
         conn.execute(text(f"ALTER TABLE {name} FORCE ROW LEVEL SECURITY"))

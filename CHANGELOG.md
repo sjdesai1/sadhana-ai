@@ -6,6 +6,18 @@ each minor version is a finished milestone.
 ## [Unreleased]
 
 ### Added
+- Nightly models with XGBoost: missed visit (no-show or late cancel) for every booked visit, and recall self-book
+  for every overdue patient; point-in-time features without language, zip, neighborhood or sex; time-split
+  testing with AUC and calibration; scores per office and metrics per run; `make models`; Dagster `model_scores`
+- Decision record 0010: model features and testing
+
+### Changed
+- Simulator: a small group of chronic no-showers and a lead-time effect on no-shows, as in real offices; office
+  no-show rates stay at benchmark
+
+## [0.4.0] - Milestone 4: benefits engine
+
+### Added
 - Benefits engine: each patient's max and deductible left, coverage by class, next eligible dates from frequency
   limits, estimates for open treatment in claim order (deductible, coverage, annual max, secondary insurance),
   and year-end phasing that moves non-urgent work past this year's max to January

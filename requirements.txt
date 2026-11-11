@@ -12,3 +12,9 @@ psycopg[binary]>=3.2
 # milestone 0: nightly pipeline
 dagster>=1.8
 dagster-webserver>=1.8
+
+# milestone 5: nightly models
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.5
+xgboost-cpu>=2.1  # CPU-only build of XGBoost; same import name, far smaller than the GPU wheel

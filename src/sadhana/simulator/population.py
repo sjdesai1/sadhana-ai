@@ -172,9 +172,12 @@ def _truth(rng: random.Random, pid: str, age: int, sex: str, tier: str, payer_ty
     compliance = _sigmoid(
         0.2 + 0.9 * hh_shared + 0.35 * tier_n - 0.6 * young + 0.3 * senior - 0.8 * anxiety + g(0, 0.6)
     )
+    # a small group misses visits chronically, which is where most no-shows come from in real offices
+    chronic = rng.random() < 0.06
     no_show = _clip(
-        0.01
+        0.0
         + 0.07 * (1 - compliance)
+        + chronic * rng.uniform(0.12, 0.3)
         + 0.03 * young
         + 0.04 * anxiety
         + 0.02 * (payer_type == "medicaid")
@@ -182,7 +185,9 @@ def _truth(rng: random.Random, pid: str, age: int, sex: str, tier: str, payer_ty
         0.005,
         0.4,
     )
-    late_cancel = _clip(0.015 + 0.06 * (1 - compliance) + 0.02 * young + g(0, 0.012), 0.005, 0.35)
+    late_cancel = _clip(
+        0.01 + 0.06 * (1 - compliance) + 0.02 * young + chronic * rng.uniform(0.03, 0.1) + g(0, 0.012), 0.005, 0.35
+    )
     price = _sigmoid(-0.9 * tier_n + 0.6 * (payer_type in ("self_pay", "medicaid")) + 0.3 * senior + g(0, 0.5))
     cosmetic = _sigmoid(-1.2 + 0.7 * tier_n + 0.8 * (18 <= age <= 54) - 0.6 * senior + 0.3 * (sex == "F") + g(0, 0.7))
     tech = _sigmoid(1.8 - 0.05 * max(0, age - 30) + 0.3 * tier_n + g(0, 0.5))

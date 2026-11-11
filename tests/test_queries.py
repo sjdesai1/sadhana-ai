@@ -82,5 +82,5 @@ def test_list_endpoints_respect_the_limit(synced) -> None:
 
 
 def test_offices_without_data_return_404(synced) -> None:
-    assert client.get("/offices/holdout_bronx_medicaid/summary").status_code == 404
+    assert client.get("/offices/no_such_office/summary").status_code == 404
     assert client.get("/offices/../summary").status_code == 404
