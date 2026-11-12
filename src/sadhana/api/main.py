@@ -119,3 +119,24 @@ def patient_benefits(office_id: str, patient_id: str) -> dict[str, Any]:
     if result is None:
         raise HTTPException(status_code=404, detail=f"unknown patient {patient_id}")
     return result
+
+
+@app.get("/offices/{office_id}/next-best")
+def office_next_best(office_id: str, limit: int = Query(50, ge=1, le=1000)) -> list[dict[str, Any]]:
+    """Each patient's most valuable open item to raise, ranked by expected value (make models first)."""
+    _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        rows = conn.execute(
+            text(
+                "SELECT patient_id, plan_id, code, tooth, p_book, value, expected_value, benefits_this_year, reason "
+                "FROM next_best ORDER BY expected_value DESC LIMIT :n"
+            ),
+            {"n": limit},
+        ).mappings()
+        return [
+            {
+                k: (float(v) if k in ("p_book", "value", "expected_value", "benefits_this_year") else v)
+                for k, v in r.items()
+            }
+            for r in rows
+        ]

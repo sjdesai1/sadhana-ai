@@ -74,7 +74,7 @@ def test_scores_cover_what_is_open_today(engine, solo_models) -> None:
         runs = conn.execute(
             text("SELECT count(DISTINCT model) FROM sadhana_meta.model_runs WHERE office_id = 'solo_manhattan'")
         ).scalar()
-    assert runs == 2
+    assert runs == 3
 
 
 def test_history_features_only_look_backward(engine, synced) -> None:
@@ -105,3 +105,65 @@ def test_missed_visit_model_gets_close_to_the_best_possible(engine, solo_models,
     test = rows[rows["missed"].notna() & (rows["date"] >= pd.Timestamp(add_months(SIM_TODAY, -4)))]
     best = roc_auc_score(test["missed"], test["patient_id"].map(truth))
     assert solo_models["missed_visit"].auc > best - 0.08
+
+
+# treatment acceptance and next-best item
+
+
+@pytest.fixture(scope="module")
+def group_models(engine, synced):
+    return {r.model: r for r in run_office(engine, "group_queens", SIM_TODAY)}
+
+
+def test_treatment_model_beats_chance_and_is_calibrated(solo_models, group_models) -> None:
+    group = group_models["treatment_accept"]
+    assert group.auc > 0.65 and group.calibration_error < 0.07
+    # a solo office has a tenth of the data; pooled learning across offices comes later
+    assert solo_models["treatment_accept"].auc > 0.55
+
+
+def test_treatment_scores_cover_open_work_and_rank_by_urgency(engine, group_models) -> None:
+    with office_session(engine, "group_queens") as conn:
+        open_items = dict(
+            conn.execute(
+                text("SELECT plan_id, priority FROM treatment_plan WHERE status IN ('proposed', 'accepted')")
+            ).all()
+        )
+    scores = group_models["treatment_accept"].scores
+    assert set(scores["entity_id"]) == set(open_items)
+    by_priority = scores.assign(priority=scores["entity_id"].map(open_items)).groupby("priority")["score"].mean()
+    assert by_priority["urgent"] > by_priority["needed"] > by_priority["elective"]
+
+
+def test_next_best_is_one_diagnosed_item_per_patient(engine, group_models) -> None:
+    with office_session(engine, "group_queens") as conn:
+        picks = (
+            conn.execute(
+                text(
+                    "SELECT n.patient_id, n.plan_id, n.code, n.p_book, n.value, n.expected_value, t.status, "
+                    "t.patient_id AS owner, p.marketing_consent "
+                    "FROM next_best n JOIN treatment_plan t USING (plan_id) "
+                    "JOIN patients p ON p.patient_id = n.patient_id"
+                )
+            )
+            .mappings()
+            .all()
+        )
+    assert picks and len({p["patient_id"] for p in picks}) == len(picks)
+    for p in picks:
+        assert p["owner"] == p["patient_id"] and p["status"] in ("proposed", "accepted")
+        if p["code"] in ("D9972", "D8090", "D2962"):
+            assert p["marketing_consent"]
+        # chance x fee x priority weight (urgent counts 1.5x); the stored chance is rounded to 4 places
+        assert float(p["expected_value"]) <= float(p["p_book"]) * float(p["value"]) * 1.5 + 1
+
+
+def test_next_best_endpoint(engine, group_models) -> None:
+    from fastapi.testclient import TestClient
+
+    from sadhana.api.main import app
+
+    rows = TestClient(app).get("/offices/group_queens/next-best?limit=10").json()
+    assert len(rows) == 10
+    values = [r["expected_value"] for r in rows]
+    assert values == sorted(values, reverse=True) and all(r["reason"] for r in rows)

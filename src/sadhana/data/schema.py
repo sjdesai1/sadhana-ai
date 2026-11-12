@@ -279,6 +279,22 @@ scores = Table(  # written by the nightly models, not by the sync
     Column("scored_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+next_best = Table(  # the one open item most worth raising with each patient, refreshed nightly
+    "next_best",
+    metadata,
+    _office(),
+    Column("patient_id", String(16), primary_key=True),
+    Column("plan_id", String(16)),
+    Column("code", String(8)),
+    Column("tooth", String(4)),
+    Column("p_book", Numeric(6, 4)),
+    Column("value", MONEY),
+    Column("expected_value", MONEY),
+    Column("benefits_this_year", MONEY),
+    Column("reason", Text),
+    Column("scored_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 offices = Table(
     "offices",
     meta,
