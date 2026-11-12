@@ -39,12 +39,21 @@ def load(conn: Connection) -> dict[str, pd.DataFrame]:
         FROM appointments
         """,
     )
+    plan = _frame(
+        conn,
+        """
+        SELECT plan_id, patient_id, tooth, code, priority, status, diagnosed_on, status_on, appt_id
+        FROM treatment_plan
+        """,
+    )
     for col in ("birth_date",):
         patients[col] = pd.to_datetime(patients[col])
     for col in ("date", "booked_on", "status_on"):
         appts[col] = pd.to_datetime(appts[col])
+    for col in ("diagnosed_on", "status_on"):
+        plan[col] = pd.to_datetime(plan[col])
     appts["hour"] = appts["start"].map(lambda t: t.hour if t is not None else np.nan)
-    return {"patients": patients, "appointments": appts}
+    return {"patients": patients, "appointments": appts, "plan": plan}
 
 
 def _payer_type(payer: pd.Series) -> pd.Series:
@@ -109,7 +118,7 @@ def missed_visit_frame(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
     rows = pd.concat([rows, hist], axis=1)
     rows["age"] = (rows["date"] - rows["birth_date"]).dt.days / 365.25
     rows["lead_days"] = (rows["date"] - rows["booked_on"]).dt.days
-    rows["weekday"] = rows["date"].dt.weekday
+    rows["weekday"] = rows["date"].dt.day_of_week
     rows["month"] = rows["date"].dt.month
     rows["rebooked"] = rows["rebook_of"].fillna("").ne("").astype(int)
     rows["is_hygiene"] = rows["kind"].isin(HYGIENE_KINDS).astype(int)
@@ -175,3 +184,71 @@ def with_payer_dummies(rows: pd.DataFrame) -> pd.DataFrame:
     rows["payer_cash"] = rows["payer_type"].eq("cash").astype(int)
     rows["payer_medicaid"] = rows["payer_type"].eq("medicaid").astype(int)
     return rows
+
+
+OPEN_STATUSES = ("proposed", "accepted")
+BOOK_WITHIN_DAYS = 90
+
+
+def treatment_frame(
+    data: dict[str, pd.DataFrame], fees: dict[str, float], classes: dict[str, str], patient_cost: dict[tuple, float]
+) -> pd.DataFrame:
+    """One row per diagnosed treatment item (referred-out work excluded). `booked` = an appointment for it was
+    booked within 90 days of diagnosis, under the office's usual follow-up; NaN while that window is open.
+    `patient_cost` maps (payer, code) to the patient's estimated share."""
+    plan = data["plan"]
+    appts = data["appointments"]
+    rows = plan[plan["status"].ne("referred") & plan["diagnosed_on"].notna()].copy()
+    booked_on = appts.set_index("appt_id")["booked_on"]
+    rows["first_booked_on"] = rows["appt_id"].map(booked_on)
+    static = _patient_static(data["patients"])
+    payer = data["patients"].set_index("patient_id")["payer"]
+    rows = rows.merge(static, on="patient_id", how="left")
+    rows["payer"] = rows["patient_id"].map(payer)
+    last_known = appts["booked_on"].max()
+    window_end = rows["diagnosed_on"] + pd.Timedelta(days=BOOK_WITHIN_DAYS)
+    done = rows["first_booked_on"].notna() & (rows["first_booked_on"] <= window_end)
+    rows["booked"] = np.where(window_end <= last_known, done.astype(float), np.nan)
+    # what the patient saw at diagnosis
+    rows["fee"] = rows["code"].map(fees).fillna(0.0)
+    keys = zip(rows["payer"], rows["code"], rows["fee"], strict=True)
+    rows["patient_cost"] = [patient_cost.get((p, c), f) for p, c, f in keys]
+    cls = rows["code"].map(classes).fillna("basic")
+    for c in ("preventive", "basic", "major", "none"):
+        rows[f"class_{c}"] = cls.eq(c).astype(int)
+    rows["urgent"] = rows["priority"].eq("urgent").astype(int)
+    rows["elective"] = rows["priority"].eq("elective").astype(int)
+    same_day = rows.groupby(["patient_id", "diagnosed_on"])
+    rows["plan_items_that_day"] = same_day["plan_id"].transform("size")
+    rows["plan_value_that_day"] = same_day["fee"].transform("sum")
+    rows["plan_cost_that_day"] = same_day["patient_cost"].transform("sum")
+    rows["month"] = rows["diagnosed_on"].dt.month
+    rows["age"] = (rows["diagnosed_on"] - rows["birth_date"]).dt.days / 365.25
+    hist = _history(appts, rows, "diagnosed_on")
+    rows = pd.concat([rows, hist], axis=1)
+    prior = _prior_acceptance(rows)
+    return pd.concat([rows, prior], axis=1)
+
+
+def _prior_acceptance(rows: pd.DataFrame) -> pd.DataFrame:
+    """How often this patient booked earlier work, counting only bookings made before this diagnosis."""
+    left = pd.DataFrame({"patient_id": rows["patient_id"].to_numpy(), "at": rows["diagnosed_on"].to_numpy()})
+    left["_row"] = np.arange(len(left))
+    right = rows[["patient_id", "diagnosed_on", "first_booked_on"]]
+    m = left.merge(right, on="patient_id")
+    m = m[m["diagnosed_on"] < m["at"]]
+    m = m.assign(was_booked=m["first_booked_on"].notna() & (m["first_booked_on"] < m["at"]))
+    agg = m.groupby("_row").agg(prior_items=("was_booked", "size"), prior_items_booked=("was_booked", "sum"))
+    out = agg.reindex(np.arange(len(left))).fillna(0)
+    out["prior_accept_rate"] = (out["prior_items_booked"] + 1) / (out["prior_items"] + 2)
+    out.index = rows.index
+    return out
+
+
+TREATMENT_FEATURES = [
+    "age", "has_secondary", "cell_phone", "email", "texts_ok", "is_child_record", "perio_maintenance",
+    "prior_visits", "prior_miss_rate", "days_since_last_visit", "tenure_days",
+    "fee", "patient_cost", "class_preventive", "class_basic", "class_major", "class_none", "urgent", "elective",
+    "plan_items_that_day", "plan_value_that_day", "plan_cost_that_day", "month",
+    "prior_items", "prior_accept_rate", "payer_cash", "payer_medicaid",
+]  # fmt: skip

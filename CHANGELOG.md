@@ -10,8 +10,13 @@ each minor version is a finished milestone.
   for every overdue patient; point-in-time features without language, zip, neighborhood or sex; time-split
   testing with AUC and calibration; scores per office and metrics per run; `make models`; Dagster `model_scores`
 - Decision record 0010: model features and testing
+- Treatment acceptance model for every open item, recalibrated on recent months as acceptance drifts
+- Next-best item per patient (chance x fee x priority, diagnosed items only, cosmetic only with consent, with a
+  reason for the desk); `next_best` table and `/offices/{id}/next-best`
 
 ### Changed
+- Model probabilities pass through an optional Platt recalibration fit on the most recent months
+- Pandas `day_of_week` instead of the deprecated `weekday`
 - Simulator: a small group of chronic no-showers and a lead-time effect on no-shows, as in real offices; office
   no-show rates stay at benchmark
 

@@ -14,12 +14,12 @@ The single place to pick up the build. Updated in every PR.
 - Milestone 2 (simulator): done, parts 1 to 5, released as 0.2.0
 - Milestone 3 (data layer and sync): done, released as 0.3.0
 - Milestone 4 (benefits engine and payer scorecard): done, released as 0.4.0
-- Milestone 5 (nightly models): part 1 done (missed visit, recall self-book); part 2 next
-- Last updated with: milestone 5 part 1, missed-visit and recall models
+- Milestone 5 (nightly models): done (missed visit, recall self-book, treatment acceptance, next-best item)
+- Last updated with: milestone 5 part 2, treatment acceptance and next-best item
 
 ## Next
 
-1. Milestone 5 part 2: treatment acceptance model and next-best item per patient
+1. Release 0.5.0 (models milestone)
 2. Then the spec's build order: optimizer, agents, evals, reports, demo mode, pilot readiness (v1)
 3. v2 and v3 as in the roadmap; code walkthrough of every milestone at the end
 
@@ -47,6 +47,11 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 
 - Vertical-neutral naming (customer, resource, optional payer) before adding a second vertical
 - Office configs' `active_patients` now means patients on file at the start; rename when convenient
+- Small offices: pool model training across offices (pooled priors) so a solo office borrows strength
+- Vertical order: dental, specialists, med spas, salons and barbers, vets; restaurants and ticketing parked
+  (platform lock-in, low value per slot)
+- After v1: AI receptionist (real-time voice) as a paid add-on; opt-out and channel policy (text, email, calls,
+  postcards) added to decision 0007 with the agents
 - Treatment decisions ignore the annual max (the money step applies it afterward); feed remaining benefits into
   decisions when the benefits engine is built
 
@@ -56,7 +61,7 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
   so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
 - `make models` trains, tests and scores the models for the demo offices
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
-  year-end list, patient benefits and estimates, payer scorecard
+  year-end list, patient benefits and estimates, payer scorecard, next-best item per patient
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens

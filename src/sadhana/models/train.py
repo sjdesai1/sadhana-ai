@@ -3,6 +3,7 @@
 - missed_visit: chance a booked visit ends as a no-show or late cancel
 - recall_self_book: chance an overdue patient books a cleaning on their own within 60 days, with nothing more
   than the office's usual reminders. Low scores are the patients outreach should go to first
+- treatment_accept: chance a diagnosed item gets booked within 90 days under the office's usual follow-up
 
 Each model is XGBoost on point-in-time features, tested on the most recent months it never saw (train on the
 past, early-stop on the next stretch, test on the latest), then used to score what is open today.
@@ -16,6 +17,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 from xgboost import XGBClassifier
 
@@ -37,6 +39,35 @@ PARAMS = {
     "random_state": 42,
     "n_jobs": 4,
 }
+
+
+class Predictor:
+    """The trained model plus an optional Platt adjustment fit on the most recent months, so probabilities stay
+    honest when behavior drifts over time (acceptance rates rising, for example)."""
+
+    def __init__(self, clf: XGBClassifier, feats: list[str]) -> None:
+        self.clf, self.feats = clf, feats
+        self.a, self.b = 1.0, 0.0
+
+    def _raw(self, rows: pd.DataFrame) -> np.ndarray:
+        return self.clf.predict_proba(rows[self.feats])[:, 1]
+
+    def recalibrate(self, rows: pd.DataFrame, y: np.ndarray) -> None:
+        if len(set(y)) < 2:
+            return
+        z = _logit(self._raw(rows)).reshape(-1, 1)
+        lr = LogisticRegression(C=1e6).fit(z, y)
+        self.a, self.b = float(lr.coef_[0][0]), float(lr.intercept_[0])
+
+    def __call__(self, rows: pd.DataFrame) -> np.ndarray:
+        if len(rows) == 0:
+            return np.array([])
+        return 1 / (1 + np.exp(-(self.a * _logit(self._raw(rows)) + self.b)))
+
+
+def _logit(p: np.ndarray) -> np.ndarray:
+    p = np.clip(p, 1e-6, 1 - 1e-6)
+    return np.log(p / (1 - p))
 
 
 @dataclass
@@ -74,7 +105,8 @@ def _fit_and_test(
     feats: list[str],
     test_from: pd.Timestamp,
     valid_from: pd.Timestamp,
-) -> tuple[XGBClassifier, ModelResult]:
+    recalibrate: bool = False,
+) -> tuple[Predictor, ModelResult]:
     train = labeled[labeled[time_col] < valid_from]
     valid = labeled[(labeled[time_col] >= valid_from) & (labeled[time_col] < test_from)]
     test = labeled[labeled[time_col] >= test_from]
@@ -82,7 +114,10 @@ def _fit_and_test(
         raise ValueError(f"{model_name}: not enough history to train and test")
     clf = XGBClassifier(**PARAMS)
     clf.fit(train[feats], train[target], eval_set=[(valid[feats], valid[target])], verbose=False)
-    p = clf.predict_proba(test[feats])[:, 1]
+    model = Predictor(clf, feats)
+    if recalibrate:
+        model.recalibrate(valid[feats], valid[target].to_numpy())
+    p = model(test)
     y = test[target].to_numpy()
     obs, pred = calibration_curve(y, p, n_bins=10, strategy="quantile")
     gain = clf.get_booster().get_score(importance_type="gain")
@@ -101,10 +136,10 @@ def _fit_and_test(
         top,
         pd.DataFrame(),
     )
-    return clf, result
+    return model, result
 
 
-def train_missed_visit(data: dict[str, pd.DataFrame], today: date) -> ModelResult:
+def train_missed_visit(data: dict[str, pd.DataFrame], today: date, ctx: dict | None = None) -> ModelResult:
     rows = F.with_payer_dummies(F.missed_visit_frame(data))
     t = pd.Timestamp(today)
     labeled = rows[rows["missed"].notna() & (rows["date"] < t)]
@@ -116,13 +151,13 @@ def train_missed_visit(data: dict[str, pd.DataFrame], today: date) -> ModelResul
         {
             "entity_id": upcoming["appt_id"].to_numpy(),
             "patient_id": upcoming["patient_id"].to_numpy(),
-            "score": clf.predict_proba(upcoming[F.MISSED_FEATURES])[:, 1] if len(upcoming) else [],
+            "score": clf(upcoming),
         }
     )
     return result
 
 
-def train_recall_self_book(data: dict[str, pd.DataFrame], today: date) -> ModelResult:
+def train_recall_self_book(data: dict[str, pd.DataFrame], today: date, ctx: dict | None = None) -> ModelResult:
     first = data["appointments"]["date"].min().date()
     snaps = []
     d = date(first.year, first.month, 1)
@@ -145,7 +180,39 @@ def train_recall_self_book(data: dict[str, pd.DataFrame], today: date) -> ModelR
         {
             "entity_id": now["patient_id"].to_numpy(),
             "patient_id": now["patient_id"].to_numpy(),
-            "score": clf.predict_proba(now[F.RECALL_FEATURES])[:, 1] if len(now) else [],
+            "score": clf(now),
+        }
+    )
+    return result
+
+
+def train_treatment_accept(data: dict[str, pd.DataFrame], today: date, ctx: dict | None = None) -> ModelResult:
+    """`ctx` carries the office's fees, benefit classes and patient-cost estimates (see run.py)."""
+    ctx = ctx or {}
+    rows = F.with_payer_dummies(
+        F.treatment_frame(data, ctx.get("fees", {}), ctx.get("classes", {}), ctx.get("patient_cost", {}))
+    )
+    labeled = rows[rows["booked"].notna()]
+    last = labeled["diagnosed_on"].max()
+    # acceptance drifts over time, so test on six months, recalibrate on the three before them
+    test_from = last - pd.DateOffset(months=6)
+    valid_from = last - pd.DateOffset(months=9)
+    clf, result = _fit_and_test(
+        "treatment_accept",
+        labeled,
+        "diagnosed_on",
+        "booked",
+        F.TREATMENT_FEATURES,
+        test_from,
+        valid_from,
+        recalibrate=True,
+    )
+    open_items = rows[rows["status"].isin(F.OPEN_STATUSES)]
+    result.scores = pd.DataFrame(
+        {
+            "entity_id": open_items["plan_id"].to_numpy(),
+            "patient_id": open_items["patient_id"].to_numpy(),
+            "score": clf(open_items),
         }
     )
     return result
