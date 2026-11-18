@@ -6,6 +6,23 @@ each minor version is a finished milestone.
 ## [Unreleased]
 
 ### Added
+- Slot optimizer: open chair time for the next two weeks from the real schedule, candidates (overdue cleanings and
+  diagnosed open treatment, cosmetic only with consent), valued as chance to book x chance to show x margin per
+  provider, filled by rounds of an assignment solver with nobody used twice; `slot_plan` table, `make optimize`,
+  Dagster `slot_plan`
+- At-risk booked visits with a distinct backup patient for each slot; `at_risk_visits` table
+- `/offices/{id}/opportunities`: the slot board
+- `configs/optimizer.json`, with the outreach lifts marked as assumptions until holdouts measure them
+
+### Changed
+- The office calendar moved to `sadhana.office_calendar`, shared by the product and the simulator, with `gaps()`
+  for open stretches; the simulator re-exports it
+- `economics.inputs_for()` builds economics inputs from an office config already in hand
+- The models' patient frame also carries marketing consent and preferred time
+
+## [0.5.0] - Milestone 5: nightly models
+
+### Added
 - Nightly models with XGBoost: missed visit (no-show or late cancel) for every booked visit, and recall self-book
   for every overdue patient; point-in-time features without language, zip, neighborhood or sex; time-split
   testing with AUC and calibration; scores per office and metrics per run; `make models`; Dagster `model_scores`

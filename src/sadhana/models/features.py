@@ -28,7 +28,8 @@ def load(conn: Connection) -> dict[str, pd.DataFrame]:
         conn,
         """
         SELECT p.patient_id, p.birth_date, p.payer, p.secondary_payer, p.phone_type, p.email_on_file,
-               p.sms_consent, p.guardian_id, coalesce(pe.maintenance, false) AS perio_maintenance
+               p.sms_consent, p.marketing_consent, p.preferred_time, p.guardian_id,
+               coalesce(pe.maintenance, false) AS perio_maintenance
         FROM patients p LEFT JOIN perio pe USING (patient_id)
         """,
     )

@@ -1,7 +1,8 @@
 """Dagster definitions. Nightly work is modeled as data assets that depend on each other.
 
 Today: sync every demo office into Postgres, then train and score the models on it; the economics tables are
-built from config, so they do not wait on the sync. Coming: the 90-day plan and reports, downstream of the scores.
+built from config, so they do not wait on the sync. The slot plan follows the scores. Coming: the 90-day plan
+and reports.
 """
 
 from pathlib import Path
@@ -18,6 +19,7 @@ from sadhana.config import settings
 from sadhana.data.db import get_engine
 from sadhana.economics.engine import build, load_inputs, write_outputs
 from sadhana.models.run import run_office
+from sadhana.optimizer.run import plan_office
 from sadhana.simulator.population import SIM_TODAY
 from sadhana.sync.adapters import SimulatorAdapter
 from sadhana.sync.run import sync_office
@@ -49,6 +51,15 @@ def model_scores(context: AssetExecutionContext) -> None:
             context.log.info(f"{office_id} {r.model}: AUC {r.auc:.3f}, scored {len(r.scores)}")
 
 
+@asset(group_name="optimizer", deps=[model_scores])
+def slot_plan(context: AssetExecutionContext) -> None:
+    """Who to offer each open slot in the next two weeks, and which booked visits are at risk."""
+    engine = get_engine()
+    for office_id in office_ids():
+        s = plan_office(engine, office_id, SIM_TODAY).summary()
+        context.log.info(f"{office_id}: {s['filled_blocks']} offers, expected ${s['expected_value']:,.0f}")
+
+
 @asset(group_name="economics")
 def economics_tables(context: AssetExecutionContext) -> None:
     """Procedure x payer x provider margins and best provider per procedure, per office."""
@@ -62,10 +73,10 @@ def economics_tables(context: AssetExecutionContext) -> None:
     context.add_output_metadata({"offices": len(counts), "rows": sum(counts.values())})
 
 
-nightly_job = define_asset_job("nightly", selection=[office_sync, model_scores, economics_tables])
+nightly_job = define_asset_job("nightly", selection=[office_sync, model_scores, slot_plan, economics_tables])
 
 defs = Definitions(
-    assets=[office_sync, model_scores, economics_tables],
+    assets=[office_sync, model_scores, slot_plan, economics_tables],
     jobs=[nightly_job],
     schedules=[ScheduleDefinition(job=nightly_job, cron_schedule="0 2 * * *", execution_timezone="America/New_York")],
 )

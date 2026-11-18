@@ -295,6 +295,44 @@ next_best = Table(  # the one open item most worth raising with each patient, re
     Column("scored_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+slot_plan = Table(  # who to offer each open slot in the next two weeks, refreshed nightly
+    "slot_plan",
+    metadata,
+    _office(),
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column("date", Date, nullable=False, index=True),
+    Column("provider_id", String(16)),
+    Column("column", String(16)),
+    Column("start", Time),
+    Column("minutes", Integer),
+    Column("patient_id", String(16), index=True),
+    Column("plan_id", String(16)),
+    Column("code", String(8)),
+    Column("p_book", Numeric(6, 4)),
+    Column("p_show", Numeric(6, 4)),
+    Column("margin", MONEY),
+    Column("expected_value", MONEY),
+    Column("reason", Text),
+    Column("planned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
+at_risk_visits = Table(  # booked visits likely to be missed, with a backup ready for the slot
+    "at_risk_visits",
+    metadata,
+    _office(),
+    Column("appt_id", String(16), primary_key=True),
+    Column("patient_id", String(16), index=True),
+    Column("date", Date),
+    Column("start", Time),
+    Column("provider_id", String(16)),
+    Column("p_missed", Numeric(6, 4)),
+    Column("value_at_risk", MONEY),
+    Column("action", Text),
+    Column("backup_patient_id", String(16)),
+    Column("backup_code", String(8)),
+    Column("planned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 offices = Table(
     "offices",
     meta,
