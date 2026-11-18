@@ -1,0 +1,13 @@
+{
+  "source": "Optimizer settings. Outreach lifts are assumptions until randomized holdouts measure them (agents milestone)",
+  "horizon_days": 14,
+  "min_lead_days": 2,
+  "min_block_minutes": 20,
+  "max_rounds": 8,
+  "outreach_lift": {"recall": 0.3, "treatment": 0.15},
+  "priority_weight": {"urgent": 1.5, "needed": 1.0, "elective": 0.8},
+  "off_preference_factor": 0.85,
+  "candidates_per_column": 500,
+  "at_risk_threshold": 0.15,
+  "office_miss_rate_prior": 0.12
+}

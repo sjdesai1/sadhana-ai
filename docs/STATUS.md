@@ -14,13 +14,16 @@ The single place to pick up the build. Updated in every PR.
 - Milestone 2 (simulator): done, parts 1 to 5, released as 0.2.0
 - Milestone 3 (data layer and sync): done, released as 0.3.0
 - Milestone 4 (benefits engine and payer scorecard): done, released as 0.4.0
-- Milestone 5 (nightly models): done (missed visit, recall self-book, treatment acceptance, next-best item)
-- Last updated with: milestone 5 part 2, treatment acceptance and next-best item
+- Milestone 5 (nightly models): done, released as 0.5.0 (missed visit, recall self-book, treatment acceptance,
+  next-best item)
+- Milestone 6 (optimizer): part 1 done (slot plan for the next two weeks, at-risk visits, opportunities board)
+- Last updated with: milestone 6 part 1, slot optimizer
 
 ## Next
 
-1. Release 0.5.0 (models milestone)
-2. Then the spec's build order: optimizer, agents, evals, reports, demo mode, pilot readiness (v1)
+1. Milestone 6 part 2 (90-day plan, real-time refill, overbooking) comes with the agents, which also measure
+   the outreach lifts the optimizer assumes today
+2. Then the spec's build order: agents, evals, reports, demo mode, pilot readiness (v1)
 3. v2 and v3 as in the roadmap; code walkthrough of every milestone at the end
 
 ## Latest benchmark run (`make sim`, seed 42)

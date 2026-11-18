@@ -68,6 +68,16 @@ def load_inputs(office_path: Path, configs_dir: Path) -> OfficeInputs:
     return OfficeInputs(office, scope, catalog, payers, medicaid)
 
 
+def inputs_for(office: Row, configs_dir: Path) -> OfficeInputs:
+    """Same as load_inputs, for an office config already in hand (for example, from the database)."""
+    state = office["state"]
+    scope: Row = json.loads((configs_dir / "rules" / f"scope_{state}.json").read_text())
+    catalog = _load_csv(configs_dir / "catalog" / "service_catalog.csv")
+    payers = {p["payer"]: p for p in _load_csv(configs_dir / "payers" / f"payers_{state}.csv")}
+    medicaid = {m["code"]: m for m in _load_csv(configs_dir / "payers" / f"medicaid_fees_{state}.csv")}
+    return OfficeInputs(office, scope, catalog, payers, medicaid)
+
+
 def staff_certs(staff: Row) -> set[str]:
     certs = set(staff.get("certs", []))
     if staff["role"] in DENTIST_ROLES:

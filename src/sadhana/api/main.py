@@ -1,6 +1,6 @@
 """FastAPI app. One app holds every layer as modules; this file wires the routes."""
 
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from typing import Any
 
@@ -140,3 +140,46 @@ def office_next_best(office_id: str, limit: int = Query(50, ge=1, le=1000)) -> l
             }
             for r in rows
         ]
+
+
+def _plain(row: Any) -> dict[str, Any]:
+    out = {}
+    for k, v in row.items():
+        if hasattr(v, "isoformat"):
+            v = v.isoformat()[:5] if k == "start" else v.isoformat()
+        elif v is not None and type(v).__name__ == "Decimal":
+            v = float(v)
+        out[k] = v
+    return out
+
+
+@app.get("/offices/{office_id}/opportunities")
+def office_opportunities(office_id: str, days: int = Query(14, ge=1, le=14)) -> dict[str, Any]:
+    """The slot board: who to offer each open slot in the next two weeks, and booked visits at risk of being
+    missed, each with a backup patient for the slot (make optimize first)."""
+    _, today = _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        slots = conn.execute(
+            text(
+                'SELECT date, start, provider_id, "column", minutes, patient_id, plan_id, code, p_book, p_show, '
+                "margin, expected_value, reason FROM slot_plan "
+                "WHERE date <= :last ORDER BY date, start, provider_id"
+            ),
+            {"last": today + timedelta(days=days)},
+        ).mappings()
+        slots = [_plain(r) for r in slots]
+        at_risk = conn.execute(
+            text(
+                "SELECT appt_id, patient_id, date, start, provider_id, p_missed, value_at_risk, action, "
+                "backup_patient_id, backup_code FROM at_risk_visits ORDER BY value_at_risk DESC"
+            )
+        ).mappings()
+        at_risk = [_plain(r) for r in at_risk]
+    return {
+        "office_id": office_id,
+        "as_of": today.isoformat(),
+        "offers": len(slots),
+        "expected_value": round(sum(s["expected_value"] for s in slots), 2),
+        "slots": slots,
+        "at_risk": at_risk,
+    }
