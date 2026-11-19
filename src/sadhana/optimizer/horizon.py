@@ -218,14 +218,15 @@ def forecast_office(engine: Engine, office_id: str, today: date) -> Plan90:
                 "SELECT s.patient_id, sc.score, s.last_cleaning, coalesce(pe.maintenance, false) FROM patient_status s "
                 "LEFT JOIN scores sc ON sc.entity_id = s.patient_id AND sc.model = 'recall_self_book' "
                 "LEFT JOIN perio pe ON pe.patient_id = s.patient_id WHERE s.next_cleaning IS NULL "
-                "AND s.last_cleaning IS NOT NULL AND (sc.score IS NOT NULL OR s.status = 'active')"
+                "AND s.last_cleaning IS NOT NULL AND (sc.score IS NOT NULL OR s.status = 'active') "
+                "ORDER BY s.patient_id"
             )
         ).all()
         items = conn.execute(
             text(
                 "SELECT t.plan_id, t.code, p.payer, sc.score FROM treatment_plan t JOIN patients p USING (patient_id) "
                 "JOIN scores sc ON sc.entity_id = t.plan_id AND sc.model = 'treatment_accept' "
-                "WHERE t.status IN ('proposed', 'accepted')"
+                "WHERE t.status IN ('proposed', 'accepted') ORDER BY t.plan_id"
             )
         ).all()
         benefits = conn.execute(

@@ -23,7 +23,8 @@ def _frame(conn: Connection, sql: str, **params) -> pd.DataFrame:
 
 
 def load(conn: Connection) -> dict[str, pd.DataFrame]:
-    """The tables the models read, already scoped to one office by the session."""
+    """The tables the models read, already scoped to one office by the session. Sorted, so the same data trains
+    the same model on every run (row order feeds the trees' sampling)."""
     patients = _frame(
         conn,
         """
@@ -31,6 +32,7 @@ def load(conn: Connection) -> dict[str, pd.DataFrame]:
                p.sms_consent, p.marketing_consent, p.preferred_time, p.guardian_id,
                coalesce(pe.maintenance, false) AS perio_maintenance
         FROM patients p LEFT JOIN perio pe USING (patient_id)
+        ORDER BY p.patient_id
         """,
     )
     appts = _frame(
@@ -38,6 +40,7 @@ def load(conn: Connection) -> dict[str, pd.DataFrame]:
         """
         SELECT appt_id, patient_id, provider_id, "column", date, start, kind, booked_on, status, status_on, rebook_of
         FROM appointments
+        ORDER BY appt_id
         """,
     )
     plan = _frame(
@@ -45,6 +48,7 @@ def load(conn: Connection) -> dict[str, pd.DataFrame]:
         """
         SELECT plan_id, patient_id, tooth, code, priority, status, diagnosed_on, status_on, appt_id
         FROM treatment_plan
+        ORDER BY plan_id
         """,
     )
     for col in ("birth_date",):

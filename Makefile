@@ -1,5 +1,5 @@
 # Shortcuts. Each target is just the docker / python command written next to it.
-.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim sync db models optimize outreach
+.PHONY: setup up down reset ps logs test lint check format cov typecheck audit upgrade economics dagster sim sync db models optimize outreach evals
 
 setup:          ## one-time: create .env, the local Python environment and the git hooks
 	@test -f .env || cp .env.example .env
@@ -75,3 +75,7 @@ optimize:       ## plan the next two weeks: who to offer each open slot, which v
 # ---- milestone 7: agents ----
 outreach:       ## simulated outreach pilot: messages, replies, opt-outs, then the measured lift (make optimize first)
 	uv run python -m sadhana.agents $(o)
+
+# ---- milestone 8: evals ----
+evals:          ## the scorecard: simulate every office and scenario, run the whole product, grade it (slow, about 10 min)
+	uv run python -m sadhana.evals $(o)

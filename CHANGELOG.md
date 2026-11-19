@@ -5,6 +5,20 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+### Added
+- The scorecard (`make evals`): simulates the demo offices, the three hidden test offices, a recession, a
+  competitor, a payer cut and an office with heavy no-shows; runs the whole product on each and grades it
+  against hidden truth and the rules; `configs/evals.json`, `outputs/evals/scorecard.md`,
+  `sadhana_meta.eval_runs`; decision record 0012
+
+### Fixed (found by the scorecard)
+- The slot plan now counts the agents' own bookings and cancellations, so it never offers a time already booked
+  by text
+- At-risk visits with no procedure codes no longer crash the optimizer
+- Runs repeat exactly: model inputs are read in a fixed order (row order fed the trees' sampling), agent ids
+  are no longer random, slot plan rows are numbered from 1 on every run, and every read that feeds a decision
+  has a fixed order
+
 ## [0.6.0] - Milestones 6 and 7: optimizer and agents
 
 ### Added

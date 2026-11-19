@@ -16,3 +16,4 @@ a changed decision gets a new record that supersedes the old one.
 | [0009](0009-full-refresh-sync.md) | Full-refresh sync in one transaction; tables from code, migrations before v3 | Accepted |
 | [0010](0010-model-features-and-testing.md) | No language, zip, neighborhood or sex in models; point-in-time features; time-split tests | Accepted |
 | [0011](0011-consent-opt-outs-and-holdouts.md) | STOP and opt-outs, channels, caps, guardians, wording; holdout groups measure lift | Accepted |
+| [0012](0012-scorecard.md) | One scorecard grades the whole product on every office and scenario; runs repeat exactly | Accepted |

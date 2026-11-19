@@ -105,13 +105,17 @@ class OutreachAgent:
         self.conn, self.office, self.s, self.today = conn, office, settings, today
         q = lambda sql, **p: pd.DataFrame(conn.execute(text(sql), p).mappings().all())  # noqa: E731
         self.patients = load_patients(conn)
-        self.slot_plan = q("SELECT id, date, start, patient_id, plan_id, code FROM slot_plan ORDER BY date, start")
-        self.at_risk = q("SELECT appt_id, patient_id, date, start FROM at_risk_visits ORDER BY value_at_risk DESC")
+        self.slot_plan = q("SELECT id, date, start, patient_id, plan_id, code FROM slot_plan ORDER BY date, start, id")
+        self.at_risk = q(
+            "SELECT appt_id, patient_id, date, start FROM at_risk_visits ORDER BY value_at_risk DESC, appt_id"
+        )
         self.next_best = q(
             "SELECT patient_id, plan_id, code, expected_value, benefits_this_year FROM next_best "
-            "ORDER BY expected_value DESC"
+            "ORDER BY expected_value DESC, patient_id"
         )
-        self.recall = q("SELECT patient_id, score FROM scores WHERE model = 'recall_self_book' ORDER BY score")
+        self.recall = q(
+            "SELECT patient_id, score FROM scores WHERE model = 'recall_self_book' ORDER BY score, patient_id"
+        )
         self.first_day = None
 
     def _history(self, day: date) -> tuple[Policy, set[tuple[str, str]]]:

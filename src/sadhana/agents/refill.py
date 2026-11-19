@@ -7,7 +7,6 @@ same way the slot plan values them: chance they book x chance they show x margin
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, time, timedelta
 from typing import Any
 
@@ -53,7 +52,7 @@ def offer(
         if d.status != "messaged" or c["code"] in settings["cosmetic_codes"]:
             continue
         policy.remember(contact, day)
-        offer_id = f"o-{uuid.uuid4().hex[:16]}"
+        offer_id = f"o-{key}-{c['patient_id']}"  # one offer per patient per slot
         length = sched.cal.duration(slot["provider_id"], c["minutes"])
         conn.execute(
             insert(refill_offers).values(

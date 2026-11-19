@@ -280,6 +280,23 @@ class Planner:
                 open_ = [b for b in open_ if b["minutes"] >= self.cfg["min_block_minutes"]]
         return sorted(fills, key=lambda f: (f.date, f.start, f.provider_id))
 
+    def first_come(self, blocks: list[Row], cands: list[Row]) -> float:
+        """Expected value if the desk filled each opening in date order with the first candidate on its list who
+        fits (the comparison the plan is graded against)."""
+        used: set[str] = set()
+        total = 0.0
+        ordered = sorted(cands, key=lambda c: c["patient_id"])
+        for b in sorted(blocks, key=lambda b: (b["date"], b["start"])):
+            for c in ordered:
+                if c["patient_id"] in used:
+                    continue
+                _, ev = self._value(b, c)
+                if ev > 0:
+                    used.add(c["patient_id"])
+                    total += ev
+                    break
+        return total
+
     def at_risk(self, booked: pd.DataFrame, missed: dict[str, float], cands: list[Row], used: set[str]) -> list[AtRisk]:
         """Booked visits likely to be missed: confirm them, and keep a different backup patient ready for each."""
         risky = []
@@ -287,8 +304,9 @@ class Planner:
             p = missed.get(r.appt_id)
             if p is None or p < self.cfg["at_risk_threshold"]:
                 continue
-            payer = r.payer or ""
-            value = sum(self._margin(c, payer, r.provider_id) for c in (r.codes or "").split() if c in self.catalog)
+            payer = r.payer if isinstance(r.payer, str) else ""
+            codes = r.codes.split() if isinstance(r.codes, str) else []  # a visit can come with no codes
+            value = sum(self._margin(c, payer, r.provider_id) for c in codes if c in self.catalog)
             risky.append((p * value, p, r))
         taken = set(used)
         out = []
