@@ -59,6 +59,22 @@ class AtRisk:
     backup_code: str
 
 
+@dataclass
+class Overbook:
+    appt_id: str
+    patient_id: str
+    date: str
+    start: str
+    provider_id: str
+    column: str
+    p_missed: float
+    extra_patient_id: str
+    extra_code: str
+    expected_gain: float  # chance the booked patient misses x chance the extra shows x margin
+    expected_cost: float  # chance both come x the cost of running over (overtime, a patient kept waiting)
+    net: float
+
+
 def load_settings(configs_dir: Path) -> Row:
     return json.loads((configs_dir / "optimizer.json").read_text())
 
@@ -292,6 +308,47 @@ class Planner:
                 )
             )  # fmt: skip
         return out
+
+    def overbook(
+        self, booked: pd.DataFrame, missed: dict[str, float], cands: list[Row], taken: set[str]
+    ) -> list[Overbook]:
+        """Book a second patient into a slot whose patient will probably miss, only where it pays:
+        p_missed x margin of the extra patient > (1 - p_missed) x cost of both showing (both weighed by the
+        chance the extra patient shows). At most a set number per
+        provider per day, never in the specialist column, never the same extra patient twice."""
+        ob = self.cfg["overbooking"]
+        options = []
+        for r in booked.itertuples():
+            p = missed.get(r.appt_id)
+            if p is None or p < ob["min_p_missed"] or r.column not in ob["collision_cost"]:
+                continue
+            slot = {"date": r.date, "provider_id": r.provider_id, "column": r.column, "start": to_min(r.start),
+                    "minutes": to_min(r.end) - to_min(r.start)}  # fmt: skip
+            for c in cands:
+                if c["patient_id"] in taken or self._value(slot, c)[0] <= 0:
+                    continue
+                # once the extra patient has said yes: they show with p_show; the gain needs the booked patient to
+                # miss, the cost needs them to come too
+                gain = p * c["p_show"] * self._margin(c["code"], c["payer"], r.provider_id)
+                cost = (1 - p) * c["p_show"] * ob["collision_cost"][r.column]
+                if gain > cost:
+                    options.append((gain - cost, p, gain, cost, r, c))
+        out, per_day, used = [], {}, set(taken)
+        for net, p, gain, cost, r, c in sorted(options, key=lambda x: -x[0]):
+            key = (r.provider_id, r.date)
+            if per_day.get(key, 0) >= ob["max_per_provider_day"] or c["patient_id"] in used:
+                continue
+            if any(o.appt_id == r.appt_id for o in out):
+                continue
+            per_day[key] = per_day.get(key, 0) + 1
+            used.add(c["patient_id"])
+            out.append(
+                Overbook(
+                    r.appt_id, r.patient_id, r.date.isoformat(), r.start, r.provider_id, r.column, round(p, 4),
+                    c["patient_id"], c["code"], round(gain, 2), round(cost, 2), round(net, 2),
+                )
+            )  # fmt: skip
+        return sorted(out, key=lambda o: (o.date, o.start, o.provider_id))
 
 
 def as_rows(items: list) -> list[Row]:

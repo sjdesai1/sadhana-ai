@@ -1,4 +1,4 @@
-"""Plan the next two weeks for every synced office (make models first).
+"""Plan the next two weeks and the next 13 weeks for every synced office (make models first).
 
 Usage:
     python -m sadhana.optimizer
@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from sadhana.config import settings
 from sadhana.data.db import get_engine
+from sadhana.optimizer.horizon import forecast_office
 from sadhana.optimizer.run import plan_office
 from sadhana.simulator.population import SIM_TODAY
 
@@ -37,7 +38,19 @@ def main() -> None:
             f"  open: {s['open_blocks']} blocks, {s['open_hours']} chair hours in the next two weeks\n"
             f"  plan: {s['filled_blocks']} offers ({cols}), expected ${s['expected_value']:,.0f}\n"
             f"  at risk: {s['at_risk_visits']} booked visits, ${s['value_at_risk']:,.0f} expected to be lost\n"
+            f"  overbook: {s['overbook']} slots worth doubling up, expected net ${s['overbook_net']:,.0f}\n"
             f"  outreach lift used: {lifts}"
+        )
+        q = forecast_office(engine, office_id, today).summary()
+        empty = ", ".join(f"{w['week']} ({w['unfilled_hours']:.0f}h)" for w in q["emptiest_weeks"])
+        print(
+            f"  next 13 weeks: {q['capacity_hours']:,.0f} chair hours; usual booking fills {q['utilization']:.0%} "
+            f"(${q['expected_value']:,.0f} margin)\n"
+            f"    outreach adds {q['outreach_hours']:,.0f} hours (${q['outreach_value']:,.0f}), "
+            f"to {q['utilization_with_outreach']:.0%}; "
+            f"{q['unfilled_hours']:,.0f} hours still open\n"
+            f"    emptiest weeks: {empty}\n"
+            f"    insurance resetting Dec 31: ${q['benefits_expiring']:,.0f} across {q['benefits_patients']:,} patients"
         )
 
 

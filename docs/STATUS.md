@@ -19,16 +19,18 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
 - Milestone 4 (benefits engine and payer scorecard): done, released as 0.4.0
 - Milestone 5 (nightly models): done, released as 0.5.0 (missed visit, recall self-book, treatment acceptance,
   next-best item)
-- Milestone 6 (optimizer): part 1 done (slot plan for the next two weeks, at-risk visits, opportunities board)
+- Milestone 6 (optimizer): done (slot plan for the next two weeks, at-risk visits, opportunities board, 90-day
+  plan backtested on past quarters, overbooking where it pays)
 - Milestone 7 (agents): part 1 done (messaging engine, outreach agent, holdout groups, measured lift); part 2
   done (reply agent, booking by text, real-time refill, front desk queue with approvals and escalation)
-- Last updated with: milestone 7 part 2, replies, refill and the front desk queue
+- Release 0.6.0 (optimizer and agents) once this is merged
+- Last updated with: milestone 6 part 2, the 90-day plan and overbooking
 
 ## Next
 
-1. Milestone 6 part 2: the 90-day plan and overbooking on high-risk slots; then release 0.6.0 (optimizer and
-   agents)
-2. Then the spec's build order: evals, reports, demo mode, pilot readiness (stage 1 done)
+1. Tag v0.6.0, then the spec's next milestones: evals (the full scorecard against hidden truth across offices
+   and scenarios), reports (the monthly office report and the ROI page), demo mode
+2. Pilot readiness closes stage 1
 3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 
 ## Latest benchmark run (`make sim`, seed 42)
@@ -69,10 +71,10 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 - `make sim` builds the demo offices; `make up` starts Postgres and the stack (run it again after code changes
   so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
 - `make models` trains, tests and scores the models for the demo offices; `make optimize` plans the next two
-  weeks; `make outreach` runs a simulated outreach pilot and measures the lift
+  weeks and the next 13; `make outreach` runs a simulated outreach pilot and measures the lift
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
   year-end list, patient benefits and estimates, payer scorecard, next-best item per patient, slot board,
-  outreach summary, inbound replies, cancellations, front desk queue
+  outreach summary, inbound replies, cancellations, front desk queue, 90-day plan
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens
