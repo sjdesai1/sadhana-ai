@@ -14,7 +14,6 @@ Bookings and cancellations wait in `pending_bookings` to be written to the PMS.
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import date, time, timedelta
 from typing import Any
 
@@ -88,17 +87,21 @@ class ReplyDesk:
         body = render(key, lang, channel, office=self.office.get("name", "your dental office"), **fields)
         self.conn.execute(
             insert(messages).values(
-                office_id=self.office["office_id"], message_id=self._message_id(), kind="reply",
+                office_id=self.office["office_id"], message_id=self._message_id(contact), kind="reply",
                 patient_id=patient, contact_id=contact, channel=channel, language=lang, body=body,
                 sent_on=self.day, sent_at=time.fromisoformat(self.s["send_at"]), status="sent",
             )
         )  # fmt: skip
         return body
 
-    def _message_id(self) -> str:
-        """Sorts in the order replies were sent within a day."""
+    def _message_id(self, contact: str) -> str:
+        """Sorts in the order replies were sent, and is the same on every run of the same simulation."""
+        n = self.conn.execute(
+            text("SELECT count(*) FROM messages WHERE kind = 'reply' AND contact_id = :c AND sent_on = :d"),
+            {"c": contact, "d": self.day},
+        ).scalar()
         self.seq += 1
-        return f"r-{self.day:%Y%m%d}-{self.seq:06d}-{uuid.uuid4().hex[:8]}"
+        return f"r-{self.day:%Y%m%d}-{self.seq:06d}-{contact}-{n}"
 
     def _offer_times(self, contact: str, patient: str, visit: Row, plan_id: str, key: str) -> tuple[str, Row]:
         opts = self.sched.openings(patient, visit, self.s["booking_options"], self.day + timedelta(days=1))

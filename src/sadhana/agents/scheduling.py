@@ -6,7 +6,6 @@ are still waiting to be written back. A slot is re-checked right before it is bo
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, time, timedelta
 from typing import Any
 
@@ -35,7 +34,10 @@ class Scheduler:
         self.g = gather(conn, today, today + timedelta(days=horizon_days))
         self.patients = self.g["patients"].set_index("patient_id")
         pending = conn.execute(
-            text("SELECT kind, patient_id, appt_id, date, start, minutes, provider_id FROM pending_bookings")
+            text(
+                "SELECT kind, patient_id, appt_id, date, start, minutes, provider_id FROM pending_bookings "
+                "ORDER BY booking_id"
+            )
         ).all()
         self.cancelled = {r.appt_id for r in pending if r.kind == "cancel"}
         self.appts: dict[str, Row] = {}
@@ -99,7 +101,7 @@ class Scheduler:
 
     def book(self, patient_id: str, opt: Row, source: str, day: date, plan_id: str = "") -> str:
         d = date.fromisoformat(opt["date"]) if isinstance(opt["date"], str) else opt["date"]
-        booking_id = f"b-{uuid.uuid4().hex[:16]}"
+        booking_id = f"b-{patient_id}-{d:%Y%m%d}-{_hhmm(opt['start']).replace(':', '')}"
         self.conn.execute(
             insert(pending_bookings).values(
                 office_id=self.office["office_id"], booking_id=booking_id, kind="book", patient_id=patient_id,

@@ -548,6 +548,18 @@ lift_estimates = Table(  # measured effect of outreach, outreach group vs holdou
     Column("measured_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+eval_runs = Table(  # each scorecard run: one office or scenario, graded against hidden truth
+    "eval_runs",
+    meta,
+    Column("run_id", BigInteger, primary_key=True, autoincrement=True),
+    Column("label", String(64), nullable=False, index=True),
+    Column("office", String(64)),
+    Column("seed", Integer),
+    Column("passed", Boolean),
+    Column("results", JSON),
+    Column("ran_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 sync_runs = Table(
     "sync_runs",
     meta,

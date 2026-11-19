@@ -5,8 +5,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
+from sadhana.agents.run import OUTREACH_TABLES
 from sadhana.config import settings
-from sadhana.data.db import get_engine
+from sadhana.data.db import get_engine, office_session
 from sadhana.economics.engine import OfficeInputs, load_inputs
 from sadhana.simulator.build import write
 from sadhana.sync.adapters import SimulatorAdapter
@@ -71,4 +72,10 @@ def synced(engine, solo_sim, group_sim, tmp_path_factory):
         office_id = sim.office["office_id"]
         out = write(sim, tmp_path_factory.mktemp(office_id))
         counts[office_id] = sync_office(engine, SimulatorAdapter(office_id, out, settings.configs_dir))
+        # start clean: agent activity and measured lifts from earlier `make outreach` runs do not apply here
+        with office_session(engine, office_id) as conn:
+            for t in OUTREACH_TABLES:
+                conn.execute(text(f"DELETE FROM {t}"))
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM sadhana_meta.lift_estimates WHERE office_id = :o"), {"o": office_id})
     return counts

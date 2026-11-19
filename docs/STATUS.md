@@ -23,13 +23,14 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
   plan backtested on past quarters, overbooking where it pays)
 - Milestone 7 (agents): part 1 done (messaging engine, outreach agent, holdout groups, measured lift); part 2
   done (reply agent, booking by text, real-time refill, front desk queue with approvals and escalation)
-- Release 0.6.0 (optimizer and agents) once this is merged
-- Last updated with: milestone 6 part 2, the 90-day plan and overbooking
+- Release 0.6.0 (optimizer and agents): tagged
+- Milestone 8 (evals): done (the scorecard across 9 offices and scenarios, graded against hidden truth)
+- Last updated with: milestone 8, the scorecard
 
 ## Next
 
-1. Tag v0.6.0, then the spec's next milestones: evals (the full scorecard against hidden truth across offices
-   and scenarios), reports (the monthly office report and the ROI page), demo mode
+1. Economics learns each payer's allowed amounts from paid claims (the scorecard showed a payer cut goes
+   unnoticed); then reports (the monthly office report and the ROI page), then demo mode
 2. Pilot readiness closes stage 1
 3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 
@@ -71,7 +72,7 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 - `make sim` builds the demo offices; `make up` starts Postgres and the stack (run it again after code changes
   so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
 - `make models` trains, tests and scores the models for the demo offices; `make optimize` plans the next two
-  weeks and the next 13; `make outreach` runs a simulated outreach pilot and measures the lift
+  weeks and the next 13; `make evals` runs the scorecard (about 9 minutes); `make outreach` runs a simulated outreach pilot and measures the lift
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
   year-end list, patient benefits and estimates, payer scorecard, next-best item per patient, slot board,
   outreach summary, inbound replies, cancellations, front desk queue, 90-day plan

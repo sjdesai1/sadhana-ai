@@ -1,0 +1,43 @@
+{
+  "source": "The scorecard: every office and scenario the product is graded on, and what passing means. Hidden test offices are graded, never tuned on (decision 0008)",
+  "seed": 42,
+  "pilot_days": 20,
+  "backtest_as_of": "2026-08-02",
+  "runs": [
+    {"label": "solo_manhattan", "office": "solo_manhattan"},
+    {"label": "group_queens", "office": "group_queens"},
+    {"label": "holdout_bronx_medicaid", "office": "holdout_bronx_medicaid", "holdout": true},
+    {"label": "holdout_park_slope_family", "office": "holdout_park_slope_family", "holdout": true},
+    {"label": "holdout_ues_boutique", "office": "holdout_ues_boutique", "holdout": true},
+    {"label": "group_queens_recession", "office": "group_queens", "scenarios": ["recession"]},
+    {"label": "group_queens_competitor", "office": "group_queens", "scenarios": ["competitor"]},
+    {"label": "solo_manhattan_payer_cut", "office": "solo_manhattan", "scenarios": ["payer_cut"]},
+    {"label": "solo_manhattan_no_shows", "office": "solo_manhattan",
+     "overrides": {"outcomes": {"office_reminder_no_show_factor": 1.6, "office_reminder_late_cancel_factor": 1.4}},
+     "note": "an office whose reminders barely work: no-shows well above normal"}
+  ],
+  "checks_note": "A 95% interval misses the truth about 1 time in 20 by design, so each run is held to 3 standard errors and the share of intervals that cover the truth is reported across the scorecard",
+  "checks": {
+    "models.missed_visit.auc": [">=", 0.58],
+    "models.missed_visit.gap_to_best": ["<=", 0.08],
+    "models.missed_visit.calibration_error": ["<=", 0.06],
+    "models.recall_self_book.auc": [">=", 0.65],
+    "models.recall_self_book.calibration_error": ["<=", 0.06],
+    "models.recall_self_book.lapsed_auc": [">=", 0.6],
+    "models.treatment_accept.auc": [">=", 0.55],
+    "models.treatment_accept.calibration_error": ["<=", 0.15],
+    "models.protected_inputs": ["==", 0],
+    "optimizer.plan_vs_first_come": [">=", 1.5],
+    "optimizer.double_bookings": ["==", 0],
+    "outreach.recall_lift_error_in_se": ["<=", 3],
+    "outreach.treatment_lift_error_in_se": ["<=", 3],
+    "outreach.rule_violations": ["==", 0],
+    "outreach.opt_out_rate": ["<=", 0.03],
+    "replies.double_bookings": ["==", 0],
+    "replies.refill_winners_per_slot": ["<=", 1],
+    "forecast.hygiene_weekly_error": ["<=", 0.12],
+    "forecast.hygiene_quarter_error": ["<=", 0.08],
+    "forecast.doctor_quarter_error": ["<=", 0.25],
+    "data.hidden_truth_columns": ["==", 0]
+  }
+}
