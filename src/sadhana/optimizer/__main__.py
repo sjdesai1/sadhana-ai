@@ -30,12 +30,14 @@ def main() -> None:
             continue
         today = SIM_TODAY if source == "simulator" else date.today()
         s = plan_office(engine, office_id, today).summary()
+        lifts = ", ".join(f"{k} {v:.0%} ({s['lift_source'][k]})" for k, v in s["outreach_lift"].items())
         cols = ", ".join(f"{n} {c}" for c, n in sorted(s["filled_by_column"].items()))
         print(
             f"\n{office_id} (as of {today})\n"
             f"  open: {s['open_blocks']} blocks, {s['open_hours']} chair hours in the next two weeks\n"
             f"  plan: {s['filled_blocks']} offers ({cols}), expected ${s['expected_value']:,.0f}\n"
-            f"  at risk: {s['at_risk_visits']} booked visits, ${s['value_at_risk']:,.0f} expected to be lost"
+            f"  at risk: {s['at_risk_visits']} booked visits, ${s['value_at_risk']:,.0f} expected to be lost\n"
+            f"  outreach lift used: {lifts}"
         )
 
 

@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 
@@ -14,6 +15,8 @@ from sadhana.config import settings
 from sadhana.data import queries
 from sadhana.data.db import get_engine, office_session
 from sadhana.economics.engine import build, load_inputs
+from sadhana.messaging import inbound
+from sadhana.messaging.policy import load_settings as load_messaging
 from sadhana.simulator.population import SIM_TODAY
 
 app = FastAPI(title="Sadhana AI", version=__version__)
@@ -183,3 +186,56 @@ def office_opportunities(office_id: str, days: int = Query(14, ge=1, le=14)) -> 
         "slots": slots,
         "at_risk": at_risk,
     }
+
+
+@app.get("/offices/{office_id}/outreach")
+def office_outreach(office_id: str) -> dict[str, Any]:
+    """Outreach so far: targets by purpose and status, messages by channel, opt-outs, and the measured lift."""
+    _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        targets = conn.execute(
+            text("SELECT purpose, status, count(*) FROM outreach_targets GROUP BY purpose, status ORDER BY 1, 2")
+        ).all()
+        channels = dict(conn.execute(text("SELECT channel, count(*) FROM messages GROUP BY channel")).all())
+        opted = dict(conn.execute(text("SELECT channel, count(*) FROM opt_outs GROUP BY channel")).all())
+    with engine().connect() as conn:
+        lifts = conn.execute(
+            text(
+                "SELECT DISTINCT ON (lift_group) lift_group, as_of, n_outreach, n_holdout, rate_outreach, "
+                "rate_holdout, lift, ci_low, ci_high FROM sadhana_meta.lift_estimates WHERE office_id = :o "
+                "ORDER BY lift_group, measured_at DESC, id DESC"
+            ),
+            {"o": office_id},
+        ).mappings()
+        lifts = [_plain(r) for r in lifts]
+    by_purpose: dict[str, dict[str, int]] = {}
+    for purpose, status, n in targets:
+        by_purpose.setdefault(purpose, {})[status] = n
+    return {"office_id": office_id, "targets": by_purpose, "messages": channels, "opt_outs": opted, "lift": lifts}
+
+
+class Inbound(BaseModel):
+    contact_id: str
+    channel: str = "sms"
+    body: str
+
+
+@app.post("/offices/{office_id}/inbound")
+def office_inbound(office_id: str, msg: Inbound) -> dict[str, Any]:
+    """A reply from a patient (the texting provider's webhook calls this): opt-outs apply before anything else is
+    sent, and STOP, START and HELP get their automatic replies."""
+    office, today = _synced_office(office_id)
+    if msg.channel not in ("sms", "email"):
+        raise HTTPException(status_code=422, detail="channel must be sms or email")
+    with office_session(engine(), office_id) as conn:
+        language = conn.execute(
+            text("SELECT language FROM patients WHERE patient_id = :p"), {"p": msg.contact_id}
+        ).scalar()
+        if (
+            language is None
+            and not conn.execute(text("SELECT 1 FROM patients WHERE patient_id = :p"), {"p": msg.contact_id}).first()
+        ):
+            raise HTTPException(status_code=404, detail="unknown contact")
+        return inbound.handle(
+            conn, office, load_messaging(settings.configs_dir), msg.contact_id, msg.channel, msg.body, today, language
+        )

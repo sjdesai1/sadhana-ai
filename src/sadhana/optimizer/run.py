@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import pandas as pd
 from sqlalchemy import Engine, insert, text
 
+from sadhana.agents import lift
 from sadhana.config import settings
 from sadhana.data.db import office_session, setup_office
 from sadhana.data.schema import at_risk_visits, slot_plan
@@ -23,6 +24,8 @@ class PlanResult:
     open_hours: float
     fills: list[Fill] = field(default_factory=list)
     at_risk: list[AtRisk] = field(default_factory=list)
+    outreach_lift: dict[str, float] = field(default_factory=dict)
+    lift_source: dict[str, str] = field(default_factory=dict)
 
     @property
     def expected_value(self) -> float:
@@ -41,6 +44,8 @@ class PlanResult:
             "expected_value": self.expected_value,
             "at_risk_visits": len(self.at_risk),
             "value_at_risk": round(sum(a.value_at_risk for a in self.at_risk), 2),
+            "outreach_lift": self.outreach_lift,
+            "lift_source": self.lift_source,
         }
 
 
@@ -56,6 +61,9 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
             text("SELECT config FROM sadhana_meta.offices WHERE office_id = :o"), {"o": office_id}
         ).scalar_one()
     planner = Planner(office, settings.configs_dir, today)
+    measured = lift.latest(engine, office_id, planner.cfg["min_holdout_for_lift"])
+    planner.cfg["outreach_lift"] = {**planner.cfg["outreach_lift"], **measured}
+    planner.lift_source = {k: ("measured" if k in measured else "assumed") for k in planner.cfg["outreach_lift"]}
     end = today + timedelta(days=planner.cfg["horizon_days"])
     with office_session(engine, office_id) as conn:
         data = features.load(conn)
@@ -96,7 +104,10 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
     fills = planner.assign(blocks, cands)
     used = {f.patient_id for f in fills}
     risky = planner.at_risk(booked, missed, cands, used)
-    result = PlanResult(office_id, today, len(blocks), sum(b["minutes"] for b in blocks) / 60, fills, risky)
+    result = PlanResult(
+        office_id, today, len(blocks), sum(b["minutes"] for b in blocks) / 60, fills, risky,
+        dict(planner.cfg["outreach_lift"]), planner.lift_source,
+    )  # fmt: skip
 
     with office_session(engine, office_id) as conn:
         conn.execute(text("DELETE FROM slot_plan"))
