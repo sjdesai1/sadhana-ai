@@ -20,14 +20,14 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
 - Milestone 5 (nightly models): done, released as 0.5.0 (missed visit, recall self-book, treatment acceptance,
   next-best item)
 - Milestone 6 (optimizer): part 1 done (slot plan for the next two weeks, at-risk visits, opportunities board)
-- Milestone 7 (agents): part 1 done (messaging engine, outreach agent, holdout groups, measured lift, simulated
-  replies and opt-outs)
-- Last updated with: milestone 7 part 1, outreach agent and messaging engine
+- Milestone 7 (agents): part 1 done (messaging engine, outreach agent, holdout groups, measured lift); part 2
+  done (reply agent, booking by text, real-time refill, front desk queue with approvals and escalation)
+- Last updated with: milestone 7 part 2, replies, refill and the front desk queue
 
 ## Next
 
-1. Milestone 7 part 2: front desk queue and approvals (decision 0007), conversational replies (reschedule,
-   questions), real-time refill when someone cancels; then milestone 6 part 2 (90-day plan, overbooking)
+1. Milestone 6 part 2: the 90-day plan and overbooking on high-risk slots; then release 0.6.0 (optimizer and
+   agents)
 2. Then the spec's build order: evals, reports, demo mode, pilot readiness (stage 1 done)
 3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 
@@ -72,7 +72,7 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
   weeks; `make outreach` runs a simulated outreach pilot and measures the lift
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
   year-end list, patient benefits and estimates, payer scorecard, next-best item per patient, slot board,
-  outreach summary, inbound replies
+  outreach summary, inbound replies, cancellations, front desk queue
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens

@@ -36,6 +36,48 @@ TEMPLATES: dict[str, dict[str, str]] = {
         "en": " Your insurance benefits for this year reset Dec 31.",
         "es": " Sus beneficios de seguro de este año se reinician el 31 de diciembre.",
     },
+    "refill": {
+        "en": "Hi, this is {office}. An opening just came up on {day} at {time}. Reply YES to take it; the first "
+        "reply gets it.",
+        "es": "Hola, le escribe {office}. Se abrió un espacio el {day} a las {time}. Responda SÍ para tomarlo; se lo "
+        "queda la primera respuesta.",
+    },
+    "booked": {
+        "en": "You're booked for {day} at {time}. See you then!",
+        "es": "Su cita quedó para el {day} a las {time}. ¡Le esperamos!",
+    },
+    "offer_times": {
+        "en": "Great. We have {opt1} or {opt2}. Reply 1 or 2.",
+        "es": "Perfecto. Tenemos {opt1} o {opt2}. Responda 1 o 2.",
+    },
+    "offer_one": {
+        "en": "Great. We have {opt1}. Reply 1 to take it.",
+        "es": "Perfecto. Tenemos {opt1}. Responda 1 para tomarlo.",
+    },
+    "reschedule_times": {
+        "en": "No problem. We have {opt1} or {opt2}. Reply 1 or 2, or call us.",
+        "es": "Con gusto. Tenemos {opt1} o {opt2}. Responda 1 o 2, o llámenos.",
+    },
+    "taken": {
+        "en": "Sorry, that time was just taken. We have {opt1} or {opt2}. Reply 1 or 2.",
+        "es": "Lo sentimos, ese espacio se acaba de tomar. Tenemos {opt1} o {opt2}. Responda 1 o 2.",
+    },
+    "confirmed": {
+        "en": "Thanks, you're confirmed for {day} at {time}.",
+        "es": "Gracias, su cita del {day} a las {time} está confirmada.",
+    },
+    "declined": {
+        "en": "No problem. We're here whenever you're ready.",
+        "es": "Con gusto. Aquí estamos cuando guste.",
+    },
+    "holding": {
+        "en": "Thanks, someone from the office will get back to you shortly.",
+        "es": "Gracias, alguien de la oficina le responderá pronto.",
+    },
+    "no_openings": {
+        "en": "Thanks! The front desk will reach out with a time.",
+        "es": "¡Gracias! La recepción le escribirá con un horario.",
+    },
     "opt_out_ack": {
         "en": "{office}: You're unsubscribed and won't get more texts. Reply START to resubscribe.",
         "es": "{office}: Ya no recibirá más mensajes. Responda START para volver a suscribirse.",
@@ -51,6 +93,8 @@ TEMPLATES: dict[str, dict[str, str]] = {
 }
 
 LANGUAGE_CODES = {"English": "en", "Spanish": "es"}
+REPLIES = {"opt_out_ack", "opt_in_ack", "help", "booked", "offer_times", "offer_one", "reschedule_times", "taken",
+           "confirmed", "declined", "holding", "no_openings"}  # fmt: skip
 
 
 def language_code(language: str | None) -> str:
@@ -63,7 +107,7 @@ def render(key: str, language: str | None, channel: str = "sms", **fields: Any) 
     body = TEMPLATES[key].get(code, TEMPLATES[key]["en"]).format(**fields)
     if fields.get("benefits_expiring") and key in ("treatment", "slot_offer"):
         body += TEMPLATES["benefits_note"][code]
-    if key in ("opt_out_ack", "opt_in_ack", "help"):
+    if key in REPLIES:
         return body
     if channel == "sms":
         return f"{body} {STOP_SMS[code]}"

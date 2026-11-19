@@ -39,19 +39,22 @@ def test_holdout_is_fixed_and_the_right_size() -> None:
 def test_nobody_is_over_messaged_or_messaged_after_stop(engine, pilot) -> None:
     with office_session(engine, OFFICE) as conn:
         per_day = conn.execute(
-            text("SELECT max(n) FROM (SELECT contact_id, sent_on, count(*) n FROM messages GROUP BY 1, 2) x")
+            text(
+                "SELECT max(n) FROM (SELECT contact_id, sent_on, count(*) n FROM messages WHERE kind <> 'reply' "
+                "GROUP BY 1, 2) x"
+            )
         ).scalar()
         weekly = conn.execute(
             text(
                 "SELECT max(n) FROM (SELECT a.contact_id, a.sent_on, count(*) n FROM messages a JOIN messages b "
                 "ON a.contact_id = b.contact_id AND b.sent_on > a.sent_on - 7 AND b.sent_on <= a.sent_on "
-                "GROUP BY 1, 2) x"
+                "WHERE a.kind <> 'reply' AND b.kind <> 'reply' GROUP BY 1, 2) x"
             )
         ).scalar()
         after_stop = conn.execute(
             text(
                 "SELECT count(*) FROM messages m JOIN opt_outs o ON o.contact_id = m.contact_id "
-                "AND o.channel = m.channel AND m.sent_on > o.opted_out_on"
+                "AND o.channel = m.channel AND m.sent_on > o.opted_out_on AND m.body NOT LIKE '%unsubscribed%'"
             )
         ).scalar()
         held_out_messaged = conn.execute(
@@ -100,6 +103,37 @@ def test_optimizer_switches_to_the_measured_lift(engine, pilot) -> None:
     plan = plan_office(engine, OFFICE, SIM_TODAY).summary()
     assert plan["lift_source"]["recall"] == "measured"
     assert plan["outreach_lift"]["recall"] == pytest.approx(measured["recall"])
+
+
+def test_replies_book_without_double_booking_and_refills_have_one_winner(engine, pilot) -> None:
+    result, _ = pilot
+    assert result.replies.get("booked", 0) > 50 and result.replies.get("refilled", 0) > 0
+    with office_session(engine, OFFICE) as conn:
+        overlaps = conn.execute(
+            text(
+                "WITH x AS (SELECT provider_id, date, start, start + make_interval(mins => minutes) e FROM "
+                "pending_bookings WHERE kind = 'book' UNION ALL SELECT provider_id, date, start, \"end\" FROM "
+                "appointments WHERE status = 'scheduled' AND appt_id NOT IN (SELECT appt_id FROM pending_bookings "
+                "WHERE kind = 'cancel')) SELECT count(*) FROM x a JOIN x b ON a.provider_id = b.provider_id "
+                "AND a.date = b.date AND a.start < b.start AND a.e > b.start"
+            )
+        ).scalar()
+        winners = conn.execute(
+            text(
+                "SELECT max(n) FROM (SELECT slot_key, count(*) n FROM refill_offers WHERE status = 'won' GROUP BY 1) x"
+            )
+        ).scalar()
+        twice = conn.execute(
+            text("SELECT count(*) FROM (SELECT patient_id FROM pending_bookings WHERE kind = 'book' GROUP BY 1 "
+                 "HAVING count(*) > 1) x")
+        ).scalar()  # fmt: skip
+        replies_after_stop = conn.execute(
+            text(
+                "SELECT count(*) FROM messages m JOIN opt_outs o ON o.contact_id = m.contact_id AND o.channel = "
+                "m.channel WHERE m.kind = 'reply' AND m.body NOT LIKE '%unsubscribed%' AND (m.sent_on > o.opted_out_on)"
+            )
+        ).scalar()
+    assert overlaps == 0 and winners == 1 and twice == 0 and replies_after_stop == 0
 
 
 def test_outreach_and_inbound_endpoints(engine, pilot) -> None:

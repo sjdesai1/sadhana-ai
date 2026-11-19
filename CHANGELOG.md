@@ -23,6 +23,15 @@ each minor version is a finished milestone.
 - `make outreach`, Dagster `outreach`, `/offices/{id}/outreach`, `/offices/{id}/inbound`
 - Decision record 0011: consent, opt-outs, channels and holdout groups
 - `docs/strategy/roadmap.md`: product versions, pricing, verticals
+- Reply agent: books from "Yes" and "1"/"2", confirms "C", reschedules "R" (freeing the slot), closes "No", and
+  sends questions to the desk; reply meanings in `messaging/intents.py`; `conversations` and `pending_bookings`
+- Real-time refill: a cancelled visit is offered to the three best backups at once, first yes wins;
+  `refill_offers`; `/offices/{id}/cancellations`
+- Front desk queue with needs reply, call, approval and FYI items, escalation from front desk to office manager
+  to dentist, and dentist approval for cosmetic follow-up; `desk_tasks`; `/offices/{id}/desk` with resolve and
+  approve
+- Simulated patients reply, pick times, reschedule, ask questions and cancel ahead; a simulated desk works the
+  queue
 
 ### Changed
 - The office calendar moved to `sadhana.office_calendar`, shared by the product and the simulator, with `gaps()`
@@ -31,6 +40,8 @@ each minor version is a finished milestone.
 - The models' patient frame also carries marketing consent and preferred time
 - Testing stages renamed Stage 1 to 3, so v1 to v5 name product versions
 - The optimizer reports which outreach lifts it used, measured or assumed
+- New nullable columns are added to existing office tables on setup (a stopgap until migrations)
+- The planner's inputs load through `optimizer.run.gather`, shared with the reply agent
 
 ## [0.5.0] - Milestone 5: nightly models
 

@@ -1,4 +1,4 @@
-# Milestone 7, part 1: Outreach agent and messaging engine
+# Milestone 7: Outreach agent, messaging engine, replies and refill
 
 Goal: act on the plan. Each send day, decide who hears from the office, about what and on which channel, follow
 every consent and opt-out rule, and measure what outreach changes with a holdout group.
@@ -49,6 +49,60 @@ Tests: `tests/test_messaging.py` (opt-out words, consent, caps, guardians, wordi
 (no message over the caps, after a STOP, without consent, or to the holdout group; children reached through
 guardians; measured lift covers the hidden truth; the optimizer switches to the measured lift; endpoints).
 
-Not yet: real sending (texting and email providers, behind the same interface), the front desk queue and
-approvals (decision 0007), conversational replies (reschedule, questions), the 90-day plan, real-time refill when
-someone cancels, and overbooking.
+Not yet: real sending (texting and email providers, behind the same interface), writing bookings back to the
+PMS, language-model replies to questions (inside templates and the office's budget), the 90-day plan, and
+overbooking.
+
+## Part 2: replies, refill and the front desk queue
+
+Code:
+- `src/sadhana/messaging/intents.py`: what a reply means (confirm, reschedule, accept, choose, decline, question)
+- `src/sadhana/agents/replies.py`: the reply agent, inside the approved templates
+- `src/sadhana/agents/scheduling.py`: openings, booking and cancelling against the live calendar
+- `src/sadhana/agents/refill.py`: a freed slot offered to the best backups at once
+- `src/sadhana/agents/desk.py`: the front desk queue and escalation
+- Tables: `desk_tasks`, `conversations`, `pending_bookings`, `refill_offers`; `messages.kind` (outreach, refill,
+  reply) and `inbound_messages.intent`
+- API: `POST /offices/{id}/cancellations` (the doorbell from the PMS), `GET /offices/{id}/desk`,
+  `POST /offices/{id}/desk/{task_id}/resolve`, `POST /offices/{id}/desk/{task_id}/approve`; `/inbound` now runs
+  the reply agent
+
+Replies:
+- "Yes" to a slot offer or refill books it if it is still free (re-checked first); otherwise "just taken" and two
+  other times
+- "Yes" to recall or treatment follow-up gets the next two openings at the patient's preferred time; "1" or "2"
+  books
+- "C" confirms. "R" or "can I do another day?" cancels the visit, offers the freed slot to backups right away,
+  and gives the patient two new times
+- "No" gets a polite close. Questions and anything else get a holding reply and a "needs reply" item for the desk
+- Opt-out words win, so "CANCEL" stops texts; confirmations ask for R to reschedule. Nobody who opted out of a
+  channel gets a reply on it
+- Bookings and cancellations wait in `pending_bookings` to be written to the PMS (with the Open Dental adapter)
+
+Refill: a cancelled visit (from the PMS, or a reschedule by text) is offered at once to the three best backups the
+rules allow, ranked like the slot plan (chance to book x chance to show x margin with that provider). The first
+yes gets it; later yeses hear it was taken and get other times. Outside send days or quiet hours, the desk gets
+a "call the waitlist" item instead.
+
+Front desk queue (decision 0007): needs reply, call, approval, and FYI (done by the agent, for the record).
+Anything that needs a person moves up when its time runs out: front desk (1 day), office manager (1 day),
+dentist (2 days). Cosmetic follow-up waits for the dentist's approval, and the rules are checked again before it
+is sent.
+
+Results (seed 42, 20 send days):
+
+| | Solo Manhattan | Group Queens |
+| --- | --- | --- |
+| Booked by text | about 90 | about 200 |
+| Cancellations refilled | about 1 of 6 | about 5 of 20 |
+| Questions to the desk | about 30 | about 40 |
+| Cosmetic follow-ups approved by the dentist | about 45 | about 2 |
+| Escalated items | 3 | 5 |
+
+The simulated desk answers about 70% of open items a day; the rest escalate. Refills fill a minority of freed
+slots because only a few backups get a same-day offer and most do not answer in time, as in real offices.
+
+Tests: `tests/test_replies.py` (reply meanings; yes, pick and book; reschedule, refill and one winner; confirm,
+question and escalation; no reply after STOP; cosmetic approval; endpoints) and the pilot checks in
+`tests/test_outreach.py` (no double booking against the PMS or each other, one winner per refill, nobody booked
+twice, no replies after STOP).
