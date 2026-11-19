@@ -10,5 +10,12 @@
   "off_preference_factor": 0.85,
   "candidates_per_column": 500,
   "at_risk_threshold": 0.15,
-  "office_miss_rate_prior": 0.12
+  "office_miss_rate_prior": 0.12,
+  "overbooking": {
+    "min_p_missed": 0.2,
+    "max_per_provider_day": 1,
+    "collision_cost": {"hygiene": 60, "doctor": 120},
+    "note": "Cost of both patients showing: overtime and a patient kept waiting. Never in the specialist column"
+  },
+  "forecast": {"weeks": 13, "trailing_weeks": 8, "show_rate_months": 6, "recall_spread_weeks": 6, "treatment_spread_weeks": 8}
 }

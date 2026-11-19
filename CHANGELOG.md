@@ -5,7 +5,14 @@ each minor version is a finished milestone.
 
 ## [Unreleased]
 
+## [0.6.0] - Milestones 6 and 7: optimizer and agents
+
 ### Added
+- 90-day plan: weekly capacity, booked and expected hours per column, what recall outreach and treatment
+  follow-up add at the measured lift, hours still open, the emptiest weeks and the insurance resetting Dec 31;
+  backtested on three past quarters; `plan_90`, `/offices/{id}/plan-90`, Dagster `plan_90`
+- Overbooking where it pays (chance of a miss x the extra patient's margin against the cost of both showing),
+  at most one per provider per day, never for specialists; `overbook_suggestions`, listed in `/opportunities`
 - Slot optimizer: open chair time for the next two weeks from the real schedule, candidates (overdue cleanings and
   diagnosed open treatment, cosmetic only with consent), valued as chance to book x chance to show x margin per
   provider, filled by rounds of an assignment solver with nobody used twice; `slot_plan` table, `make optimize`,

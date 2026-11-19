@@ -1,4 +1,4 @@
-# Milestone 6, part 1: Slot optimizer
+# Milestone 6: Slot optimizer, 90-day plan and overbooking
 
 Goal: turn the nightly scores into a schedule. For the next two weeks, find every open stretch of chair time,
 decide who is most worth offering it to, and flag booked visits likely to be missed so the slot is not lost.
@@ -53,5 +53,61 @@ allowed for that provider, diagnosed and still open, the patient's own, and cosm
 beats the first-come desk by at least 1.5x; at-risk visits are real bookings with distinct backups; the
 endpoint returns the plan and filters by days.
 
-Not yet (part 2, with the agents): the 90-day plan, real-time refill when someone cancels, overbooking on
-high-risk slots, and measuring the outreach lifts with holdout groups instead of assuming them.
+Real-time refill and measured outreach lifts came with the agents (milestone 7); the 90-day plan and
+overbooking are part 2 below.
+
+## Part 2: the 90-day plan and overbooking
+
+Run: `make optimize` now also prints the next 13 weeks and any overbooking. In Dagster, `plan_90` runs after
+`outreach`, so it uses that night's measured lift.
+
+Code: `src/sadhana/optimizer/horizon.py` (forecast, outreach fill, backtest) and `Planner.overbook` in
+`plan.py`. Tables: `plan_90`, `overbook_suggestions`. API: `GET /offices/{id}/plan-90`; `/opportunities` now
+lists overbooking too.
+
+The 90-day plan, week by week and per column:
+1. Capacity: chair hours from the office calendar (hours, lunch, who works which day, holidays)
+2. Booked: what is on the books now, plus the agents' bookings and cancellations not yet in the PMS
+3. Expected with the office's usual booking: its share of capacity filled over the last 8 weeks, never below
+   what is booked times its recent show rate
+4. Outreach on top: recall (overdue now, spread over 6 weeks; coming due, in the week it is due) and treatment
+   follow-up (spread over 8 weeks), each at the measured lift (or the assumption until measured), capped by the
+   open hours each week, with the rest spilling to the next week
+5. Value: hours x the office's margin per chair hour in that column over the last year; treatment at each item's
+   own margin
+6. Also: the emptiest weeks, and the insurance that resets Dec 31 for patients with open treatment
+
+Backtest: the baseline made on three past dates (Feb 1, May 3, Aug 2 2026) from the schedule as it stood then,
+next to what the offices really did over the following 13 weeks:
+
+| | Hygiene weekly error | Hygiene quarter total | Doctor quarter total |
+| --- | --- | --- | --- |
+| Solo Manhattan | 4-6% | within 4% | within 18% |
+| Group Queens | 4-6% | within 3% | within 6% |
+
+Specialist weeks are too lumpy to forecast week by week (a few long surgeries); the plan shows them, but the
+error is large. An earlier try that scaled the booked hours up by past booking curves was much worse (25-75%
+weekly error), because how far ahead visits get booked shifts from year to year.
+
+Results (seed 42, next 13 weeks from 2026-11-02):
+
+| | Solo Manhattan | Group Queens |
+| --- | --- | --- |
+| Chair hours | about 1,270 | about 3,480 |
+| Filled with usual booking | about 54% (about $150k margin) | about 49% (about $176k margin) |
+| With outreach | about 72-74% (+$60-75k) | about 62-67% (+$75-135k) |
+| Emptiest weeks | early January | January |
+| Insurance resetting Dec 31 | about $85k, 278 patients | about $325k, 821 patients |
+
+The outreach range moves with the measured treatment lift, which is still noisy at these holdout sizes.
+
+Overbooking: a second patient goes into a booked slot only where
+`p_missed x chance the extra shows x their margin > (1 - p_missed) x chance the extra shows x cost of both
+showing` (about $60 for hygiene, $120 for the doctor: overtime and a patient kept waiting). At most one per
+provider per day, never in the specialist column, never the same extra patient twice. With these offices' miss
+rates (most visits under 25%), it rarely pays: about one slot at the solo office and none at the group office in
+the next two weeks. It is there for offices with more no-shows.
+
+Tests (`tests/test_horizon.py`): the backtest bounds above on all three dates for both offices; the plan adds up
+(expected under capacity, outreach under the open hours, unfilled what is left); agent bookings count as booked;
+overbooking happens when it pays and not when it does not, within the limits; the endpoint.

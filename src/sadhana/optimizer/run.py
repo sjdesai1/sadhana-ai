@@ -12,9 +12,9 @@ from sqlalchemy import Connection, Engine, insert, text
 from sadhana.agents import lift
 from sadhana.config import settings
 from sadhana.data.db import office_session, setup_office
-from sadhana.data.schema import at_risk_visits, slot_plan
+from sadhana.data.schema import at_risk_visits, overbook_suggestions, slot_plan
 from sadhana.models import features
-from sadhana.optimizer.plan import AtRisk, Fill, Planner, as_rows
+from sadhana.optimizer.plan import AtRisk, Fill, Overbook, Planner, as_rows
 
 
 @dataclass
@@ -25,6 +25,7 @@ class PlanResult:
     open_hours: float
     fills: list[Fill] = field(default_factory=list)
     at_risk: list[AtRisk] = field(default_factory=list)
+    overbook: list[Overbook] = field(default_factory=list)
     outreach_lift: dict[str, float] = field(default_factory=dict)
     lift_source: dict[str, str] = field(default_factory=dict)
 
@@ -45,6 +46,8 @@ class PlanResult:
             "expected_value": self.expected_value,
             "at_risk_visits": len(self.at_risk),
             "value_at_risk": round(sum(a.value_at_risk for a in self.at_risk), 2),
+            "overbook": len(self.overbook),
+            "overbook_net": round(sum(o.net for o in self.overbook), 2),
             "outreach_lift": self.outreach_lift,
             "lift_source": self.lift_source,
         }
@@ -117,16 +120,20 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
     fills = planner.assign(blocks, cands)
     used = {f.patient_id for f in fills}
     risky = planner.at_risk(booked, missed, cands, used)
+    extra = planner.overbook(booked, missed, cands, used | {a.backup_patient_id for a in risky})
     result = PlanResult(
         office_id, today, len(blocks), sum(b["minutes"] for b in blocks) / 60, fills, risky,
-        dict(planner.cfg["outreach_lift"]), planner.lift_source,
+        extra, dict(planner.cfg["outreach_lift"]), planner.lift_source,
     )  # fmt: skip
 
     with office_session(engine, office_id) as conn:
         conn.execute(text("DELETE FROM slot_plan"))
         conn.execute(text("DELETE FROM at_risk_visits"))
+        conn.execute(text("DELETE FROM overbook_suggestions"))
         if fills:
             conn.execute(insert(slot_plan), [{"office_id": office_id, **r} for r in as_rows(fills)])
         if risky:
             conn.execute(insert(at_risk_visits), [{"office_id": office_id, **r} for r in as_rows(risky)])
+        if extra:
+            conn.execute(insert(overbook_suggestions), [{"office_id": office_id, **r} for r in as_rows(extra)])
     return result

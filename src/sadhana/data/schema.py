@@ -333,6 +333,43 @@ at_risk_visits = Table(  # booked visits likely to be missed, with a backup read
     Column("planned_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+overbook_suggestions = Table(  # a second patient for slots whose patient will probably miss, where it pays
+    "overbook_suggestions",
+    metadata,
+    _office(),
+    Column("appt_id", String(16), primary_key=True),
+    Column("patient_id", String(16)),
+    Column("date", Date),
+    Column("start", Time),
+    Column("provider_id", String(16)),
+    Column("column", String(16)),
+    Column("p_missed", Numeric(6, 4)),
+    Column("extra_patient_id", String(16)),
+    Column("extra_code", String(8)),
+    Column("expected_gain", MONEY),
+    Column("expected_cost", MONEY),
+    Column("net", MONEY),
+    Column("planned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
+plan_90 = Table(  # the next 13 weeks: chair time, what is booked, what is expected, and what outreach adds
+    "plan_90",
+    metadata,
+    _office(),
+    Column("week", Date, primary_key=True),
+    Column("column", String(16), primary_key=True),
+    Column("capacity_hours", Numeric(8, 1)),
+    Column("booked_hours", Numeric(8, 1)),
+    Column("expected_hours", Numeric(8, 1)),  # with the office's usual booking, from recent weeks
+    Column("open_hours", Numeric(8, 1)),
+    Column("recall_hours", Numeric(8, 1)),  # added by recall outreach (measured lift)
+    Column("treatment_hours", Numeric(8, 1)),  # added by treatment follow-up (measured lift)
+    Column("unfilled_hours", Numeric(8, 1)),
+    Column("expected_value", MONEY),
+    Column("outreach_value", MONEY),
+    Column("planned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 outreach_targets = Table(  # everyone the outreach agent picked, including the holdout group it left alone
     "outreach_targets",
     metadata,

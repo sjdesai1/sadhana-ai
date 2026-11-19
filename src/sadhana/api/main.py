@@ -180,6 +180,13 @@ def office_opportunities(office_id: str, days: int = Query(14, ge=1, le=14)) -> 
             )
         ).mappings()
         at_risk = [_plain(r) for r in at_risk]
+        overbook = conn.execute(
+            text(
+                'SELECT appt_id, patient_id, date, start, provider_id, "column", p_missed, extra_patient_id, '
+                "extra_code, expected_gain, expected_cost, net FROM overbook_suggestions ORDER BY date, start"
+            )
+        ).mappings()
+        overbook = [_plain(r) for r in overbook]
     return {
         "office_id": office_id,
         "as_of": today.isoformat(),
@@ -187,6 +194,7 @@ def office_opportunities(office_id: str, days: int = Query(14, ge=1, le=14)) -> 
         "expected_value": round(sum(s["expected_value"] for s in slots), 2),
         "slots": slots,
         "at_risk": at_risk,
+        "overbook": overbook,
     }
 
 
@@ -289,3 +297,26 @@ def office_desk_approve(office_id: str, task_id: int) -> dict[str, Any]:
     if result.get("reason") == "no open approval with that id":
         raise HTTPException(status_code=404, detail=result["reason"])
     return result
+
+
+@app.get("/offices/{office_id}/plan-90")
+def office_plan_90(office_id: str) -> dict[str, Any]:
+    """The next 13 weeks per column: capacity, what is booked, what the office's usual booking fills, what
+    outreach adds, and the hours still open (make optimize first)."""
+    _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        rows = [
+            _plain(r)
+            for r in conn.execute(
+                text(
+                    'SELECT week, "column", capacity_hours, booked_hours, expected_hours, open_hours, recall_hours, '
+                    "treatment_hours, unfilled_hours, expected_value, outreach_value FROM plan_90 ORDER BY week, 2"
+                )
+            ).mappings()
+        ]
+    totals: dict[str, float] = {}
+    for r in rows:
+        for k in ("capacity_hours", "expected_hours", "recall_hours", "treatment_hours", "unfilled_hours",
+                  "expected_value", "outreach_value"):  # fmt: skip
+            totals[k] = round(totals.get(k, 0.0) + (r[k] or 0.0), 2)
+    return {"office_id": office_id, "weeks": rows, "totals": totals}
