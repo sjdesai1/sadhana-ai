@@ -23,6 +23,7 @@ def handle(
     body: str,
     received_on: date,
     language: str | None = None,
+    intent: str | None = None,
 ) -> Row:
     """Record one inbound message, apply opt-out or opt-in, and return the action and any automatic reply."""
     action = classify(body, settings)
@@ -50,6 +51,7 @@ def handle(
             received_on=received_on,
             body=body,
             action=action,
+            intent=intent if action == "reply" else None,
             auto_reply=auto,
         )
     )

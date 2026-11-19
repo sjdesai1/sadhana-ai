@@ -54,6 +54,7 @@ def setup_office(conn: Connection, office_id: str) -> str:
     setup_shared(conn)
     conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
     metadata.create_all(conn.execution_options(schema_translate_map={None: schema}))
+    _add_missing_columns(conn, schema)
     for table in metadata.sorted_tables:
         name = f"{schema}.{table.name}"
         conn.execute(text(f"ALTER TABLE {name} ENABLE ROW LEVEL SECURITY"))
@@ -70,6 +71,23 @@ def setup_office(conn: Connection, office_id: str) -> str:
     conn.execute(text(f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {schema} TO {APP_ROLE}"))
     conn.execute(text(f"GRANT USAGE ON ALL SEQUENCES IN SCHEMA {schema} TO {APP_ROLE}"))
     return schema
+
+
+def _add_missing_columns(conn: Connection, schema: str) -> None:
+    """New nullable columns on tables an office already has (create_all only makes missing tables). A stopgap
+    until migrations (decision 0009)."""
+    for table in metadata.sorted_tables:
+        have = {
+            r[0]
+            for r in conn.execute(
+                text("SELECT column_name FROM information_schema.columns WHERE table_schema = :s AND table_name = :t"),
+                {"s": schema, "t": table.name},
+            )
+        }
+        for col in table.columns:
+            if col.name not in have:
+                kind = col.type.compile(dialect=conn.dialect)
+                conn.execute(text(f'ALTER TABLE {schema}.{table.name} ADD COLUMN "{col.name}" {kind}'))
 
 
 @contextmanager

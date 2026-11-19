@@ -11,6 +11,24 @@
   "care_purposes": ["confirm", "slot_offer", "treatment", "recall"],
   "cosmetic_codes": ["D9972", "D8090", "D2962"],
   "lift_group": {"confirm": "confirm", "recall": "recall", "treatment": "treatment"},
+  "escalation": {
+    "levels": ["front_desk", "office_manager", "dentist"],
+    "days_at_level": {"front_desk": 1, "office_manager": 1, "dentist": 2},
+    "note": "Open items that need a person move up a level when their time runs out; FYI items never escalate"
+  },
+  "approval_needed": {"cosmetic": "dentist"},
+  "refill": {"offers_at_once": 3, "min_lead_days": 1},
+  "booking_options": 2,
+  "intents": {
+    "confirm": ["C", "CONFIRM", "CONFIRMED", "CONFIRMAR"],
+    "reschedule": ["R", "RESCHEDULE", "CAMBIAR"],
+    "reschedule_phrases": ["reschedule", "another time", "different time", "instead", "can't make", "cant make", "change my"],
+    "accept": ["YES", "Y", "YEAH", "YEP", "SURE", "OK", "OKAY", "SI", "SÍ"],
+    "accept_phrases": ["sounds good", "i'll take", "ill take", "works for me"],
+    "decline": ["NO", "NOPE"],
+    "decline_phrases": ["not right now", "no thanks", "not interested", "maybe later"],
+    "question_starts": ["how", "what", "when", "does", "do", "is", "can", "will", "why", "where", "which"]
+  },
   "keywords": {
     "opt_out": ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT", "ALTO", "PARA", "BAJA"],
     "opt_out_phrases": ["stop texting", "stop messaging", "don't text", "dont text", "do not text", "remove me", "no more texts", "unsubscribe"],

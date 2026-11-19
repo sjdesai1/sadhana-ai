@@ -40,6 +40,11 @@ def main() -> None:
         print("  targets: " + ", ".join(f"{k} {v:,}" for k, v in sorted(r.by_status.items())))
         print("  messages: " + ", ".join(f"{k} {v:,}" for k, v in sorted(r.by_channel.items())))
         print(f"  opt-outs: {r.opt_outs}")
+        print("  replies and actions: " + ", ".join(f"{k} {v:,}" for k, v in sorted(r.replies.items())))
+        print(
+            f"  escalations: {r.escalations}; still open: "
+            + (", ".join(f"{k} {v}" for k, v in r.desk_open.items()) or "none")
+        )
         for e in r.estimates:
             note = f" (optimizer assumed {assumed[e['lift_group']]:.0%})" if e["lift_group"] in assumed else ""
             print(

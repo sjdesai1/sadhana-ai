@@ -19,5 +19,10 @@
     "per_recent_message": 0.7,
     "email_base": 0.004
   },
-  "reply_when_not_booking": 0.3
+  "reply_when_not_booking": 0.3,
+  "question_share": 0.25,
+  "reschedule_share": 0.35,
+  "pick_option": 0.85,
+  "advance_cancel_per_day": 0.006,
+  "desk": {"resolve_per_day": 0.7, "approve": 0.8}
 }

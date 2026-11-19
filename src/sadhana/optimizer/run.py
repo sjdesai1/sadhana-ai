@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from typing import Any
 
 import pandas as pd
-from sqlalchemy import Engine, insert, text
+from sqlalchemy import Connection, Engine, insert, text
 
 from sadhana.agents import lift
 from sadhana.config import settings
@@ -49,9 +50,52 @@ class PlanResult:
         }
 
 
-def _scores(conn, model: str) -> pd.DataFrame:  # noqa: ANN001
+def _scores(conn: Connection, model: str) -> pd.DataFrame:
     rows = conn.execute(text("SELECT entity_id, patient_id, score FROM scores WHERE model = :m"), {"m": model}).all()
     return pd.DataFrame(rows, columns=["entity_id", "patient_id", "score"]).astype({"score": float})
+
+
+def gather(conn: Connection, today: date, end: date) -> dict[str, Any]:
+    """What the planner reads: booked visits up to `end`, who already has something booked, miss rates, scores."""
+    data = features.load(conn)
+    booked = pd.DataFrame(
+        conn.execute(
+            text(
+                'SELECT a.appt_id, a.patient_id, a.provider_id, a."column", a.date, '
+                "to_char(a.start, 'HH24:MI') AS start, to_char(a.\"end\", 'HH24:MI') AS end, a.codes, p.payer "
+                "FROM appointments a LEFT JOIN patients p USING (patient_id) "
+                "WHERE a.status = 'scheduled' AND a.date > :t AND a.date <= :e ORDER BY a.date, a.start"
+            ),
+            {"t": today, "e": end},
+        ).all(),
+        columns=["appt_id", "patient_id", "provider_id", "column", "date", "start", "end", "codes", "payer"],
+    )
+    future = {
+        r[0]
+        for r in conn.execute(
+            text("SELECT DISTINCT patient_id FROM appointments WHERE status = 'scheduled' AND date > :t"),
+            {"t": today},
+        )
+    }
+    miss = {
+        pid: (ns + lc) / (done + ns + lc + 2)
+        for pid, done, ns, lc in conn.execute(
+            text(
+                "SELECT patient_id, coalesce(completed_visits, 0), coalesce(no_shows, 0), "
+                "coalesce(late_cancels, 0) FROM patient_status"
+            )
+        )
+    }
+    return {
+        "patients": data["patients"],
+        "plan": data["plan"],
+        "booked": booked,
+        "future": future,
+        "miss": miss,
+        "recall": _scores(conn, "recall_self_book"),
+        "accept": _scores(conn, "treatment_accept"),
+        "missed": dict(_scores(conn, "missed_visit")[["entity_id", "score"]].itertuples(index=False)),
+    }
 
 
 def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
@@ -66,41 +110,10 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
     planner.lift_source = {k: ("measured" if k in measured else "assumed") for k in planner.cfg["outreach_lift"]}
     end = today + timedelta(days=planner.cfg["horizon_days"])
     with office_session(engine, office_id) as conn:
-        data = features.load(conn)
-        booked = pd.DataFrame(
-            conn.execute(
-                text(
-                    'SELECT a.appt_id, a.patient_id, a.provider_id, a."column", a.date, '
-                    "to_char(a.start, 'HH24:MI') AS start, to_char(a.\"end\", 'HH24:MI') AS end, a.codes, p.payer "
-                    "FROM appointments a LEFT JOIN patients p USING (patient_id) "
-                    "WHERE a.status = 'scheduled' AND a.date > :t AND a.date <= :e ORDER BY a.date, a.start"
-                ),
-                {"t": today, "e": end},
-            ).all(),
-            columns=["appt_id", "patient_id", "provider_id", "column", "date", "start", "end", "codes", "payer"],
-        )
-        future = {
-            r[0]
-            for r in conn.execute(
-                text("SELECT DISTINCT patient_id FROM appointments WHERE status = 'scheduled' AND date > :t"),
-                {"t": today},
-            )
-        }
-        miss = {
-            pid: (ns + lc) / (done + ns + lc + 2)
-            for pid, done, ns, lc in conn.execute(
-                text(
-                    "SELECT patient_id, coalesce(completed_visits, 0), coalesce(no_shows, 0), "
-                    "coalesce(late_cancels, 0) FROM patient_status"
-                )
-            )
-        }
-        recall = _scores(conn, "recall_self_book")
-        accept = _scores(conn, "treatment_accept")
-        missed = dict(_scores(conn, "missed_visit")[["entity_id", "score"]].itertuples(index=False))
-
+        g = gather(conn, today, end)
+    booked, missed = g["booked"], g["missed"]
+    cands = planner.candidates(g["patients"], g["recall"], g["plan"], g["accept"], g["miss"], g["future"])
     blocks = planner.blocks(booked)
-    cands = planner.candidates(data["patients"], recall, data["plan"], accept, miss, future)
     fills = planner.assign(blocks, cands)
     used = {f.patient_id for f in fills}
     risky = planner.at_risk(booked, missed, cands, used)

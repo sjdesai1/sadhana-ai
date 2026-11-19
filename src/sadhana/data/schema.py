@@ -345,7 +345,7 @@ outreach_targets = Table(  # everyone the outreach agent picked, including the h
     Column("code", String(8)),
     Column("targeted_on", Date, index=True),
     Column("arm", String(16)),  # outreach or holdout
-    Column("status", String(16)),  # messaged, desk_call, blocked, held_out
+    Column("status", String(16)),  # messaged, desk_call, blocked, held_out, needs_approval
     Column("reason", Text),
 )
 
@@ -355,6 +355,8 @@ messages = Table(  # what was sent, to whom, on which channel
     _office(),
     Column("message_id", String(40), primary_key=True),
     Column("target_id", String(40), index=True),
+    Column("kind", String(16)),  # outreach, refill or reply
+    Column("ref_id", String(40)),  # for a refill offer, the offer it belongs to
     Column("patient_id", String(16), index=True),
     Column("contact_id", String(16), index=True),
     Column("channel", String(8)),
@@ -375,6 +377,7 @@ inbound_messages = Table(  # replies, opt-outs and help requests
     Column("received_on", Date),
     Column("body", Text),
     Column("action", String(16)),  # opt_out, opt_in, help, reply
+    Column("intent", String(16)),  # for replies: confirm, reschedule, accept, choose, decline, question, other
     Column("auto_reply", Text),
 )
 
@@ -396,6 +399,76 @@ outreach_results = Table(  # what happened after: booked, or kept the visit; com
     Column("patient_id", String(16), index=True),
     Column("success", Boolean),  # booked within the window, or kept the visit for confirmations
     Column("observed_on", Date),
+)
+
+desk_tasks = Table(  # the front desk queue: what needs a person, what is just for their information
+    "desk_tasks",
+    metadata,
+    _office(),
+    Column("task_id", BigInteger, primary_key=True, autoincrement=True),
+    Column("kind", String(16), index=True),  # needs_reply, call, approval, fyi
+    Column("patient_id", String(16), index=True),
+    Column("contact_id", String(16)),
+    Column("summary", Text),
+    Column("ref_id", String(40)),
+    Column("level", String(16)),  # front_desk, office_manager, dentist
+    Column("created_on", Date),
+    Column("due_on", Date),
+    Column("status", String(16), index=True),  # open, done
+    Column("resolved_on", Date),
+    Column("escalations", Integer),
+)
+
+conversations = Table(  # where each text thread stands, so "1" or "2" means something
+    "conversations",
+    metadata,
+    _office(),
+    Column("contact_id", String(16), primary_key=True),
+    Column("patient_id", String(16)),
+    Column("state", String(16)),  # offered (times sent, waiting for a pick), idle
+    Column("options", JSON),
+    Column("code", String(8)),
+    Column("plan_id", String(16)),
+    Column("updated_on", Date),
+)
+
+pending_bookings = Table(  # bookings and cancellations the agents made, waiting to be written to the PMS
+    "pending_bookings",
+    metadata,
+    _office(),
+    Column("booking_id", String(48), primary_key=True),
+    Column("kind", String(8)),  # book or cancel
+    Column("patient_id", String(16), index=True),
+    Column("appt_id", String(16)),  # the visit cancelled, for a cancel
+    Column("date", Date, index=True),
+    Column("start", Time),
+    Column("minutes", Integer),
+    Column("provider_id", String(16)),
+    Column("column", String(16)),
+    Column("code", String(8)),
+    Column("plan_id", String(16)),
+    Column("source", String(16)),  # slot_offer, refill, reply, reschedule
+    Column("created_on", Date),
+    Column("status", String(16)),  # pending (not yet in the PMS), written
+)
+
+refill_offers = Table(  # a freed slot offered to the best backups at once; the first yes gets it
+    "refill_offers",
+    metadata,
+    _office(),
+    Column("offer_id", String(48), primary_key=True),
+    Column("slot_key", String(48), index=True),
+    Column("patient_id", String(16), index=True),
+    Column("contact_id", String(16)),
+    Column("date", Date),
+    Column("start", Time),
+    Column("minutes", Integer),
+    Column("provider_id", String(16)),
+    Column("column", String(16)),
+    Column("code", String(8)),
+    Column("plan_id", String(16)),
+    Column("offered_on", Date),
+    Column("status", String(16)),  # offered, won, taken (someone else got it)
 )
 
 offices = Table(

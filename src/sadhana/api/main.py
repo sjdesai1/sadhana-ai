@@ -10,12 +10,14 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
 
 from sadhana import __version__
+from sadhana.agents import desk
+from sadhana.agents.outreach import approve
+from sadhana.agents.replies import ReplyDesk
 from sadhana.benefits.engine import BenefitsEngine
 from sadhana.config import settings
 from sadhana.data import queries
 from sadhana.data.db import get_engine, office_session
 from sadhana.economics.engine import build, load_inputs
-from sadhana.messaging import inbound
 from sadhana.messaging.policy import load_settings as load_messaging
 from sadhana.simulator.population import SIM_TODAY
 
@@ -222,20 +224,68 @@ class Inbound(BaseModel):
 
 @app.post("/offices/{office_id}/inbound")
 def office_inbound(office_id: str, msg: Inbound) -> dict[str, Any]:
-    """A reply from a patient (the texting provider's webhook calls this): opt-outs apply before anything else is
-    sent, and STOP, START and HELP get their automatic replies."""
+    """A reply from a patient (the texting provider's webhook calls this). Opt-outs apply before anything else is
+    sent; STOP, START and HELP get their automatic replies; anything else goes to the reply agent, which books,
+    confirms, reschedules or hands it to the front desk."""
     office, today = _synced_office(office_id)
     if msg.channel not in ("sms", "email"):
         raise HTTPException(status_code=422, detail="channel must be sms or email")
     with office_session(engine(), office_id) as conn:
-        language = conn.execute(
-            text("SELECT language FROM patients WHERE patient_id = :p"), {"p": msg.contact_id}
-        ).scalar()
-        if (
-            language is None
-            and not conn.execute(text("SELECT 1 FROM patients WHERE patient_id = :p"), {"p": msg.contact_id}).first()
-        ):
+        if not conn.execute(text("SELECT 1 FROM patients WHERE patient_id = :p"), {"p": msg.contact_id}).first():
             raise HTTPException(status_code=404, detail="unknown contact")
-        return inbound.handle(
-            conn, office, load_messaging(settings.configs_dir), msg.contact_id, msg.channel, msg.body, today, language
+        return ReplyDesk(conn, office, load_messaging(settings.configs_dir), today).receive(
+            msg.contact_id, msg.channel, msg.body
         )
+
+
+class Cancellation(BaseModel):
+    appt_id: str
+
+
+@app.post("/offices/{office_id}/cancellations")
+def office_cancellation(office_id: str, c: Cancellation) -> dict[str, Any]:
+    """The doorbell for a cancelled visit (from the PMS): free the slot and offer it to the best backups now."""
+    office, today = _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        return ReplyDesk(conn, office, load_messaging(settings.configs_dir), today).cancellation(c.appt_id)
+
+
+@app.get("/offices/{office_id}/desk")
+def office_desk(office_id: str, status: str = Query("open", pattern="^(open|done|all)$")) -> dict[str, Any]:
+    """The front desk queue: needs a reply, calls, approvals; FYI items are listed apart from the rest."""
+    _synced_office(office_id)
+    where = "" if status == "all" else "WHERE status = :s"
+    with office_session(engine(), office_id) as conn:
+        rows = conn.execute(
+            text(
+                "SELECT task_id, kind, patient_id, contact_id, summary, level, created_on, due_on, status, "
+                f"escalations FROM desk_tasks {where} ORDER BY due_on NULLS LAST, task_id"
+            ),
+            {"s": status},
+        ).mappings()
+        rows = [_plain(r) for r in rows]
+    return {
+        "office_id": office_id,
+        "needs_action": [r for r in rows if r["kind"] != "fyi"],
+        "fyi": [r for r in rows if r["kind"] == "fyi"],
+    }
+
+
+@app.post("/offices/{office_id}/desk/{task_id}/resolve")
+def office_desk_resolve(office_id: str, task_id: int) -> dict[str, Any]:
+    _, today = _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        if not desk.resolve(conn, task_id, today):
+            raise HTTPException(status_code=404, detail="no open task with that id")
+    return {"task_id": task_id, "status": "done"}
+
+
+@app.post("/offices/{office_id}/desk/{task_id}/approve")
+def office_desk_approve(office_id: str, task_id: int) -> dict[str, Any]:
+    """Approve a waiting message; the rules are checked again before it is sent."""
+    office, today = _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        result = approve(conn, office, load_messaging(settings.configs_dir), task_id, today)
+    if result.get("reason") == "no open approval with that id":
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
