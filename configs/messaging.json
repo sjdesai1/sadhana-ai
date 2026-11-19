@@ -1,0 +1,20 @@
+{
+  "source": "Outreach rules every office starts with. Care messages follow up on what a dentist found; marketing needs its own consent",
+  "send_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  "send_at": "10:00",
+  "quiet_hours": {"start": "09:00", "end": "20:00"},
+  "caps": {"per_day": 1, "per_week": 2, "retarget_after_days": 30},
+  "daily_limit": {"treatment": 40, "recall": 60},
+  "holdout_share": 0.2,
+  "min_holdout_for_estimate": 100,
+  "email_after_sms_stop": {"allowed": true, "purposes": ["confirm"], "note": "After STOP, email only for visit confirmations, never for outreach; review with counsel before launch"},
+  "care_purposes": ["confirm", "slot_offer", "treatment", "recall"],
+  "cosmetic_codes": ["D9972", "D8090", "D2962"],
+  "lift_group": {"confirm": "confirm", "recall": "recall", "treatment": "treatment"},
+  "keywords": {
+    "opt_out": ["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT", "ALTO", "PARA", "BAJA"],
+    "opt_out_phrases": ["stop texting", "stop messaging", "don't text", "dont text", "do not text", "remove me", "no more texts", "unsubscribe"],
+    "opt_in": ["START", "UNSTOP", "SUBSCRIBE"],
+    "help": ["HELP", "INFO", "AYUDA"]
+  }
+}

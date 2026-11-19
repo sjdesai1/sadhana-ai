@@ -333,6 +333,71 @@ at_risk_visits = Table(  # booked visits likely to be missed, with a backup read
     Column("planned_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+outreach_targets = Table(  # everyone the outreach agent picked, including the holdout group it left alone
+    "outreach_targets",
+    metadata,
+    _office(),
+    Column("target_id", String(40), primary_key=True),
+    Column("patient_id", String(16), nullable=False, index=True),
+    Column("purpose", String(16)),  # confirm, slot_offer, treatment, recall
+    Column("lift_group", String(16)),  # what the result measures: confirm, recall, treatment
+    Column("ref_id", String(40)),  # the appointment, plan item or slot it is about
+    Column("code", String(8)),
+    Column("targeted_on", Date, index=True),
+    Column("arm", String(16)),  # outreach or holdout
+    Column("status", String(16)),  # messaged, desk_call, blocked, held_out
+    Column("reason", Text),
+)
+
+messages = Table(  # what was sent, to whom, on which channel
+    "messages",
+    metadata,
+    _office(),
+    Column("message_id", String(40), primary_key=True),
+    Column("target_id", String(40), index=True),
+    Column("patient_id", String(16), index=True),
+    Column("contact_id", String(16), index=True),
+    Column("channel", String(8)),
+    Column("language", String(32)),
+    Column("body", Text),
+    Column("sent_on", Date, index=True),
+    Column("sent_at", Time),
+    Column("status", String(16)),  # sent (simulated sender), delivered, failed
+)
+
+inbound_messages = Table(  # replies, opt-outs and help requests
+    "inbound_messages",
+    metadata,
+    _office(),
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column("contact_id", String(16), index=True),
+    Column("channel", String(8)),
+    Column("received_on", Date),
+    Column("body", Text),
+    Column("action", String(16)),  # opt_out, opt_in, help, reply
+    Column("auto_reply", Text),
+)
+
+opt_outs = Table(  # who asked not to be contacted, per channel; honored before anything is sent
+    "opt_outs",
+    metadata,
+    _office(),
+    Column("contact_id", String(16), primary_key=True),
+    Column("channel", String(8), primary_key=True),
+    Column("opted_out_on", Date),
+    Column("source", Text),
+)
+
+outreach_results = Table(  # what happened after: booked, or kept the visit; comes from the next sync in production
+    "outreach_results",
+    metadata,
+    _office(),
+    Column("target_id", String(40), primary_key=True),
+    Column("patient_id", String(16), index=True),
+    Column("success", Boolean),  # booked within the window, or kept the visit for confirmations
+    Column("observed_on", Date),
+)
+
 offices = Table(
     "offices",
     meta,
@@ -354,6 +419,23 @@ model_runs = Table(
     Column("trained_at", DateTime(timezone=True), server_default=func.now()),
     Column("as_of", Date),
     Column("metrics", JSON),
+)
+
+lift_estimates = Table(  # measured effect of outreach, outreach group vs holdout group
+    "lift_estimates",
+    meta,
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column("office_id", String(64), nullable=False, index=True),
+    Column("lift_group", String(16), nullable=False),
+    Column("as_of", Date),
+    Column("n_outreach", Integer),
+    Column("n_holdout", Integer),
+    Column("rate_outreach", Numeric(6, 4)),
+    Column("rate_holdout", Numeric(6, 4)),
+    Column("lift", Numeric(6, 4)),  # share of people who would not have acted that outreach moved
+    Column("ci_low", Numeric(6, 4)),
+    Column("ci_high", Numeric(6, 4)),
+    Column("measured_at", DateTime(timezone=True), server_default=func.now()),
 )
 
 sync_runs = Table(

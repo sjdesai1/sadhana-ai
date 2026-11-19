@@ -4,9 +4,12 @@ The single place to pick up the build. Updated in every PR.
 
 ## Roadmap
 
-- v1: the whole product, built and demoed on the two demo offices
-- v2: the same product tested on more and different simulations (hidden test offices, scenarios, stress settings)
-- v3: real data, starting with Open Dental's demo database, then a pilot office
+Testing stages, all inside product v1:
+- Stage 1: the whole product, built and demoed on the two demo offices
+- Stage 2: the same product tested on more and different simulations (hidden test offices, scenarios, stress)
+- Stage 3: real data, starting with Open Dental's demo database, then a pilot office
+
+Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strategy/roadmap.md`
 
 ## Where things stand
 
@@ -17,14 +20,16 @@ The single place to pick up the build. Updated in every PR.
 - Milestone 5 (nightly models): done, released as 0.5.0 (missed visit, recall self-book, treatment acceptance,
   next-best item)
 - Milestone 6 (optimizer): part 1 done (slot plan for the next two weeks, at-risk visits, opportunities board)
-- Last updated with: milestone 6 part 1, slot optimizer
+- Milestone 7 (agents): part 1 done (messaging engine, outreach agent, holdout groups, measured lift, simulated
+  replies and opt-outs)
+- Last updated with: milestone 7 part 1, outreach agent and messaging engine
 
 ## Next
 
-1. Milestone 6 part 2 (90-day plan, real-time refill, overbooking) comes with the agents, which also measure
-   the outreach lifts the optimizer assumes today
-2. Then the spec's build order: agents, evals, reports, demo mode, pilot readiness (v1)
-3. v2 and v3 as in the roadmap; code walkthrough of every milestone at the end
+1. Milestone 7 part 2: front desk queue and approvals (decision 0007), conversational replies (reschedule,
+   questions), real-time refill when someone cancels; then milestone 6 part 2 (90-day plan, overbooking)
+2. Then the spec's build order: evals, reports, demo mode, pilot readiness (stage 1 done)
+3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 
 ## Latest benchmark run (`make sim`, seed 42)
 
@@ -51,10 +56,11 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 - Vertical-neutral naming (customer, resource, optional payer) before adding a second vertical
 - Office configs' `active_patients` now means patients on file at the start; rename when convenient
 - Small offices: pool model training across offices (pooled priors) so a solo office borrows strength
-- Vertical order: dental, specialists, med spas, salons and barbers, vets; restaurants and ticketing parked
-  (platform lock-in, low value per slot)
-- After v1: AI receptionist (real-time voice) as a paid add-on; opt-out and channel policy (text, email, calls,
-  postcards) added to decision 0007 with the agents
+- Vertical order and pricing: `docs/strategy/roadmap.md`. Reservation-based restaurants and ticketing stay parked
+  (platform lock-in); POS-based restaurants, bars and retail come after the appointment verticals
+- Messaging after a text STOP: email only for visit confirmations (decision 0011); review with counsel before
+  launch. Postcards as another channel, later
+- Reviewed translations beyond English and Spanish before the first office with many speakers of another language
 - Treatment decisions ignore the annual max (the money step applies it afterward); feed remaining benefits into
   decisions when the benefits engine is built
 
@@ -62,9 +68,11 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 
 - `make sim` builds the demo offices; `make up` starts Postgres and the stack (run it again after code changes
   so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
-- `make models` trains, tests and scores the models for the demo offices
+- `make models` trains, tests and scores the models for the demo offices; `make optimize` plans the next two
+  weeks; `make outreach` runs a simulated outreach pilot and measures the lift
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
-  year-end list, patient benefits and estimates, payer scorecard, next-best item per patient
+  year-end list, patient benefits and estimates, payer scorecard, next-best item per patient, slot board,
+  outreach summary, inbound replies
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens

@@ -13,12 +13,24 @@ each minor version is a finished milestone.
 - At-risk booked visits with a distinct backup patient for each slot; `at_risk_visits` table
 - `/offices/{id}/opportunities`: the slot board
 - `configs/optimizer.json`, with the outreach lifts marked as assumptions until holdouts measure them
+- Messaging engine shared by every vertical: consent, opt-outs (STOP and its variants, START, HELP), channels
+  (text, email, front desk call task), caps, quiet hours, guardians for children, wording in English and Spanish
+- Outreach agent: confirmations for at-risk visits, slot offers, treatment follow-up and recall each send day, with
+  a fixed holdout group; `outreach_targets`, `messages`, `inbound_messages`, `opt_outs`, `outreach_results`
+- Lift measurement, outreach group vs holdout with a 95% interval; `sadhana_meta.lift_estimates`; the optimizer
+  uses the measured lift once the holdout is big enough
+- Simulated patients answer outreach from hidden traits: bookings, replies and opt-outs
+- `make outreach`, Dagster `outreach`, `/offices/{id}/outreach`, `/offices/{id}/inbound`
+- Decision record 0011: consent, opt-outs, channels and holdout groups
+- `docs/strategy/roadmap.md`: product versions, pricing, verticals
 
 ### Changed
 - The office calendar moved to `sadhana.office_calendar`, shared by the product and the simulator, with `gaps()`
   for open stretches; the simulator re-exports it
 - `economics.inputs_for()` builds economics inputs from an office config already in hand
 - The models' patient frame also carries marketing consent and preferred time
+- Testing stages renamed Stage 1 to 3, so v1 to v5 name product versions
+- The optimizer reports which outreach lifts it used, measured or assumed
 
 ## [0.5.0] - Milestone 5: nightly models
 
