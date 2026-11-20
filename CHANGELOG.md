@@ -16,6 +16,11 @@ each minor version is a finished milestone.
   flagged with the month it changed; `payer_rates`, `payer_schedule_check`, `/offices/{id}/payer-check`,
   `configs/economics.json`; scorecard check `economics.payer_flags_correct`
 
+- The monthly report: recovered revenue counted only from the measured difference against the holdout (and
+  only kept visits), refills less an assumed share the desk would have filled, the return on the fee, front desk
+  hours saved, the schedule, outreach, insurance and the next 90 days; `make report`, `/offices/{id}/report`,
+  `/offices/{id}/report.html`, `configs/reports.json`
+
 ### Fixed (found by the scorecard)
 - The slot plan now counts the agents' own bookings and cancellations, so it never offers a time already booked
   by text

@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import OperationalError
@@ -19,6 +20,8 @@ from sadhana.data import queries
 from sadhana.data.db import get_engine, office_session
 from sadhana.economics.engine import build, load_inputs
 from sadhana.messaging.policy import load_settings as load_messaging
+from sadhana.reports.html import render as render_report
+from sadhana.reports.monthly import build_report
 from sadhana.simulator.population import SIM_TODAY
 
 app = FastAPI(title="Sadhana AI", version=__version__)
@@ -340,3 +343,18 @@ def office_payer_check(office_id: str) -> dict[str, Any]:
         learned = conn.execute(text("SELECT count(*) FROM payer_rates")).scalar()
     return {"office_id": office_id, "payers": checks, "codes_learned": learned,
             "flagged": [c["payer"] for c in checks if c["flag"]]}  # fmt: skip
+
+
+@app.get("/offices/{office_id}/report")
+def office_report(office_id: str) -> dict[str, Any]:
+    """The monthly report: what Sadhana recovered (measured against the holdout group), the return on the fee,
+    the schedule, outreach, the front desk, insurance and the next 90 days."""
+    _, today = _synced_office(office_id)
+    return build_report(engine(), office_id, today).as_dict()
+
+
+@app.get("/offices/{office_id}/report.html", response_class=HTMLResponse)
+def office_report_html(office_id: str) -> str:
+    """The same report as a page an office manager can read or print."""
+    _, today = _synced_office(office_id)
+    return render_report(build_report(engine(), office_id, today))
