@@ -11,6 +11,11 @@ each minor version is a finished milestone.
   against hidden truth and the rules; `configs/evals.json`, `outputs/evals/scorecard.md`,
   `sadhana_meta.eval_runs`; decision record 0012
 
+- Allowed amounts learned from paid claims (credibility-weighted against the schedule on file), used by the
+  economics, the slot plan, booking and the 90-day plan; payers paying more than 3% under their schedule are
+  flagged with the month it changed; `payer_rates`, `payer_schedule_check`, `/offices/{id}/payer-check`,
+  `configs/economics.json`; scorecard check `economics.payer_flags_correct`
+
 ### Fixed (found by the scorecard)
 - The slot plan now counts the agents' own bookings and cancellations, so it never offers a time already booked
   by text

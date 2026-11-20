@@ -45,9 +45,9 @@ What failed, and what the scorecard found:
 - Two runs of the same simulation gave different results: model inputs were read in no fixed order (row order
   feeds the trees' sampling), agent ids were random, some ordered reads had ties, and measured lifts from the
   previous run carried over. Fixed; runs now repeat exactly, and a test checks it
-- The payer cut scenario scores the same as the plain solo office. The cut lowers what Cigna really pays, but the
-  economics engine takes margins from the configured fee schedules, not from what payers paid, so the product
-  does not notice. Next: learn each payer's allowed amounts from paid claims
+- The payer cut scenario scored the same as the plain solo office: margins came from the configured fee
+  schedules, not from what payers paid. Fixed: the product now learns allowed amounts from paid claims and flags
+  payers paying under their schedule (docs/10_payer_rates.md), and the scorecard checks the flags
 - With heavy no-shows, overbooking turns on (20 slots in two weeks against 0 to 2 elsewhere), as it should
 
 Not in CI: the full scorecard takes about 9 minutes, so CI runs one hidden office end to end

@@ -28,6 +28,7 @@ from sadhana.agents import lift
 from sadhana.config import settings
 from sadhana.data.db import office_session
 from sadhana.data.schema import plan_90
+from sadhana.economics import observed
 from sadhana.office_calendar import Calendar, holidays
 from sadhana.optimizer.plan import Planner
 
@@ -204,7 +205,9 @@ def _margin_per_hour(conn: Connection, planner: Planner, today: date) -> dict[st
 
 def forecast_office(engine: Engine, office_id: str, today: date) -> Plan90:
     office, f = _setup(engine, office_id, today)
-    planner = Planner(office, settings.configs_dir, today)
+    with office_session(engine, office_id) as conn:
+        learned = observed.load(conn)
+    planner = Planner(office, settings.configs_dir, today, learned)
     cfg = planner.cfg["forecast"]
     measured = lift.latest(engine, office_id, planner.cfg["min_holdout_for_lift"])
     lifts = {**planner.cfg["outreach_lift"], **measured}

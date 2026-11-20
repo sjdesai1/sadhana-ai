@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +41,8 @@ class OfficeInputs:
     catalog: list[Row]
     payers: dict[str, Row]
     medicaid: dict[str, Row]
+    # what payers really allow, learned from paid claims: (payer, code) -> amount (economics.observed)
+    observed: dict[tuple[str, str], float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -68,14 +70,15 @@ def load_inputs(office_path: Path, configs_dir: Path) -> OfficeInputs:
     return OfficeInputs(office, scope, catalog, payers, medicaid)
 
 
-def inputs_for(office: Row, configs_dir: Path) -> OfficeInputs:
-    """Same as load_inputs, for an office config already in hand (for example, from the database)."""
+def inputs_for(office: Row, configs_dir: Path, observed: dict[tuple[str, str], float] | None = None) -> OfficeInputs:
+    """Same as load_inputs, for an office config already in hand (for example, from the database), optionally
+    with allowed amounts learned from paid claims."""
     state = office["state"]
     scope: Row = json.loads((configs_dir / "rules" / f"scope_{state}.json").read_text())
     catalog = _load_csv(configs_dir / "catalog" / "service_catalog.csv")
     payers = {p["payer"]: p for p in _load_csv(configs_dir / "payers" / f"payers_{state}.csv")}
     medicaid = {m["code"]: m for m in _load_csv(configs_dir / "payers" / f"medicaid_fees_{state}.csv")}
-    return OfficeInputs(office, scope, catalog, payers, medicaid)
+    return OfficeInputs(office, scope, catalog, payers, medicaid, observed or {})
 
 
 def staff_certs(staff: Row) -> set[str]:
@@ -196,6 +199,8 @@ def build(inputs: OfficeInputs) -> EconomicsResult:
             w_margin = w_econ = w_share = 0.0
             for pname, share in mix.items():
                 allowed, basis = allowed_amount(proc, inputs.payers[pname], office, inputs.medicaid)
+                if allowed is not None and (pname, proc["code"]) in inputs.observed:
+                    allowed, basis = inputs.observed[(pname, proc["code"])], "learned from paid claims"
                 if allowed is None:
                     not_covered.append(
                         {

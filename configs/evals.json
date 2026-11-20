@@ -38,6 +38,7 @@
     "forecast.hygiene_weekly_error": ["<=", 0.12],
     "forecast.hygiene_quarter_error": ["<=", 0.08],
     "forecast.doctor_quarter_error": ["<=", 0.25],
-    "data.hidden_truth_columns": ["==", 0]
+    "data.hidden_truth_columns": ["==", 0],
+    "economics.payer_flags_correct": ["==", 1]
   }
 }

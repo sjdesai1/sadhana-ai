@@ -333,6 +333,32 @@ at_risk_visits = Table(  # booked visits likely to be missed, with a backup read
     Column("planned_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+payer_rates = Table(  # allowed amounts learned from paid claims, where they differ from the schedule on file
+    "payer_rates",
+    metadata,
+    _office(),
+    Column("payer", String(64), primary_key=True),
+    Column("code", String(8), primary_key=True),
+    Column("schedule", MONEY),
+    Column("observed", MONEY),  # median allowed on recent claims
+    Column("claims", Integer),
+    Column("allowed_used", MONEY),  # the blend the margins use
+    Column("learned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
+payer_schedule_check = Table(  # how each payer pays against its schedule on file, and when that changed
+    "payer_schedule_check",
+    metadata,
+    _office(),
+    Column("payer", String(64), primary_key=True),
+    Column("paid_vs_schedule", Numeric(6, 4)),
+    Column("claims", Integer),
+    Column("changed_on", Date),
+    Column("change", Numeric(6, 4)),
+    Column("flag", Boolean),
+    Column("learned_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 overbook_suggestions = Table(  # a second patient for slots whose patient will probably miss, where it pays
     "overbook_suggestions",
     metadata,

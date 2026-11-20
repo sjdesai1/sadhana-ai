@@ -13,6 +13,8 @@ from sadhana.agents import lift
 from sadhana.config import settings
 from sadhana.data.db import office_session, setup_office
 from sadhana.data.schema import at_risk_visits, overbook_suggestions, slot_plan
+from sadhana.economics import observed
+from sadhana.economics.engine import inputs_for
 from sadhana.models import features
 from sadhana.optimizer.plan import AtRisk, Fill, Overbook, Planner, as_rows
 
@@ -27,6 +29,7 @@ class PlanResult:
     at_risk: list[AtRisk] = field(default_factory=list)
     overbook: list[Overbook] = field(default_factory=list)
     first_come_value: float = 0.0
+    payers_flagged: list[str] = field(default_factory=list)
     outreach_lift: dict[str, float] = field(default_factory=dict)
     lift_source: dict[str, str] = field(default_factory=dict)
 
@@ -46,6 +49,7 @@ class PlanResult:
             "filled_by_column": by_column,
             "expected_value": self.expected_value,
             "first_come_value": round(self.first_come_value, 2),
+            "payers_flagged": self.payers_flagged,
             "at_risk_visits": len(self.at_risk),
             "value_at_risk": round(sum(a.value_at_risk for a in self.at_risk), 2),
             "overbook": len(self.overbook),
@@ -129,7 +133,11 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
         office = conn.execute(
             text("SELECT config FROM sadhana_meta.offices WHERE office_id = :o"), {"o": office_id}
         ).scalar_one()
-    planner = Planner(office, settings.configs_dir, today)
+    with office_session(engine, office_id) as conn:  # what payers really allow, from paid claims
+        rates = observed.learn(conn, inputs_for(office, settings.configs_dir), today,
+                               observed.load_settings(settings.configs_dir))  # fmt: skip
+        observed.save(conn, office_id, rates)
+    planner = Planner(office, settings.configs_dir, today, rates.allowed)
     measured = lift.latest(engine, office_id, planner.cfg["min_holdout_for_lift"])
     planner.cfg["outreach_lift"] = {**planner.cfg["outreach_lift"], **measured}
     planner.lift_source = {k: ("measured" if k in measured else "assumed") for k in planner.cfg["outreach_lift"]}
@@ -146,7 +154,7 @@ def plan_office(engine: Engine, office_id: str, today: date) -> PlanResult:
     extra = planner.overbook(booked, missed, cands, used | {a.backup_patient_id for a in risky})
     result = PlanResult(
         office_id, today, len(blocks), sum(b["minutes"] for b in blocks) / 60, fills, risky,
-        extra, first_come, dict(planner.cfg["outreach_lift"]), planner.lift_source,
+        extra, first_come, sorted(rates.flagged()), dict(planner.cfg["outreach_lift"]), planner.lift_source,
     )  # fmt: skip
 
     with office_session(engine, office_id) as conn:
