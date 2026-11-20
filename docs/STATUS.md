@@ -26,11 +26,12 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
 - Release 0.6.0 (optimizer and agents): tagged
 - Milestone 8 (evals): done (the scorecard across 9 offices and scenarios, graded against hidden truth)
 - Payer rates learned from paid claims, with payers paying under their schedule flagged
-- Last updated with: payer rates from paid claims
+- Milestone 9 (reports): done (the monthly office report and the return on the fee)
+- Last updated with: milestone 9, the monthly report
 
 ## Next
 
-1. Reports (the monthly office report and the ROI page), then demo mode
+1. Demo mode (the sales demo on a simulated office), then pilot readiness; that closes stage 1
 2. Pilot readiness closes stage 1
 3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 
@@ -72,10 +73,10 @@ Hidden test offices: see `docs/03_m2_simulator.md`, part 5.
 - `make sim` builds the demo offices; `make up` starts Postgres and the stack (run it again after code changes
   so the app image rebuilds); `make sync` loads them; `make db` opens a SQL prompt
 - `make models` trains, tests and scores the models for the demo offices; `make optimize` plans the next two
-  weeks and the next 13; `make evals` runs the scorecard (about 9 minutes); `make outreach` runs a simulated outreach pilot and measures the lift
+  weeks and the next 13; `make evals` runs the scorecard (about 9 minutes); `make report` writes the monthly report; `make outreach` runs a simulated outreach pilot and measures the lift
 - API docs at http://localhost:8000/docs: office summary, overdue, unscheduled treatment, unused benefits,
   year-end list, patient benefits and estimates, payer scorecard, next-best item per patient, slot board,
-  outreach summary, inbound replies, cancellations, front desk queue, 90-day plan
+  outreach summary, inbound replies, cancellations, front desk queue, 90-day plan, payer check, monthly report
 - Database tests skip when Postgres is not running; CI always runs them
 
 ## How work happens

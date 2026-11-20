@@ -1,0 +1,9 @@
+{
+  "source": "The monthly office report and the return on Sadhana",
+  "monthly_fee": 500,
+  "fee_note": "Founding price for the first 30 offices; standard tiers in docs/strategy/roadmap.md",
+  "refill_without_sadhana": 0.25,
+  "refill_note": "Assumed share of freed slots the desk would have refilled anyway; until measured, refill value is counted only for the rest",
+  "minutes_saved": {"reply_handled": 2.0, "message_sent": 1.0, "confirmation": 3.0},
+  "minutes_note": "Front desk minutes a text the agent handled would have taken by phone"
+}
