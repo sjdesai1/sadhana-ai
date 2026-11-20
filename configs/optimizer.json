@@ -17,5 +17,5 @@
     "collision_cost": {"hygiene": 60, "doctor": 120},
     "note": "Cost of both patients showing: overtime and a patient kept waiting. Never in the specialist column"
   },
-  "forecast": {"weeks": 13, "trailing_weeks": 8, "show_rate_months": 6, "recall_spread_weeks": 6, "treatment_spread_weeks": 8}
+  "forecast": {"weeks": 13, "trailing_weeks": 13, "show_rate_months": 6, "recall_spread_weeks": 6, "treatment_spread_weeks": 8}
 }

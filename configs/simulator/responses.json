@@ -1,5 +1,6 @@
 {
   "source": "Hidden: how simulated patients respond to outreach. The product never reads this; it only sees replies, opt-outs and bookings",
+  "benchmarks": "Tuned in docs/12_benchmarks.md: text reminders raise attendance about 11 points (Cochrane CD007458); outreach to overdue patients moves a similar amount; SMS opt-outs about 0.5% per send (Postscript)",
   "window_days": 14,
   "natural": {
     "recall_scale": 0.3,
@@ -7,15 +8,15 @@
     "note": "chance of booking in the window with no outreach: recall_compliance x scale, or trust x (1 - price_sensitivity / 2) x scale"
   },
   "lift": {
-    "recall": 0.2,
-    "treatment": 0.09,
+    "recall": 0.15,
+    "treatment": 0.07,
     "slot_offer_factor": 1.3,
-    "confirm_effect": 0.45,
+    "confirm_effect": 0.3,
     "channel": {"sms": 1.0, "email": 0.5, "desk_call": 0.8},
     "note": "share of people who would not have acted that outreach moves, scaled by each person's responsiveness and trust"
   },
   "opt_out": {
-    "sms_base": 0.012,
+    "sms_base": 0.006,
     "per_recent_message": 0.7,
     "email_base": 0.004
   },

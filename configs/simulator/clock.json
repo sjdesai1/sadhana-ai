@@ -36,8 +36,8 @@
     "full_xrays_every_years": 5
   },
   "outcomes": {
-    "note": "With the office's own reminder texts most offices see about 5% no-shows and 4-6% late cancels",
-    "office_reminder_no_show_factor": 0.62,
+    "note": "With the office's own reminder texts: about 4-5% no-shows and 4% late cancels. Henry Schein One's 2026 Catalyst Index puts the DSO average at 3% no-shows and 5% cancellations; solo offices run a little higher (docs/12_benchmarks.md)",
+    "office_reminder_no_show_factor": 0.45,
     "office_reminder_late_cancel_factor": 0.9,
     "new_patient_no_show_factor": 1.5,
     "booked_far_out_days": 90,
@@ -67,8 +67,8 @@
     "year_end_benefit_pull": 0.2
   },
   "treatment": {
-    "note": "Case acceptance: most urgent work is accepted, about half of needed work, a small share of elective work",
-    "accept_base": {"urgent": 2.4, "needed": 0.5, "elective": -1.6},
+    "note": "Case acceptance: most urgent work is accepted, under half of needed work, a small share of elective work; overall about 50-60%, between the 45% (Catalyst Index 2026) and 61% (Levin, 2016) national figures",
+    "accept_base": {"urgent": 2.4, "needed": 0.25, "elective": -1.6},
     "accept_trust": 2.4,
     "accept_price": 2.0,
     "cost_scale": 1000,

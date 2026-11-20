@@ -59,17 +59,29 @@ def conn(engine, office):
 def _texters(conn, n: int, booked: bool = False) -> list[str]:
     """Adults who take texts; with or without a visit already booked."""
     cond = "IN" if booked else "NOT IN"
+    window = "AND date > :d AND date < :e" if booked else "AND date > :d"  # booked: a visit in the next 2 months
     return [
         r[0]
         for r in conn.execute(
             text(
                 "SELECT patient_id FROM patients WHERE sms_consent AND phone_type = 'cell' AND guardian_id IS NULL "
+                "AND language = 'English' "
                 f"AND birth_date < '2000-01-01' AND patient_id {cond} (SELECT patient_id FROM appointments "
-                "WHERE status = 'scheduled' AND date > :d) ORDER BY patient_id LIMIT :n"
+                f"WHERE status = 'scheduled' {window}) ORDER BY patient_id LIMIT :n"
             ),
-            {"d": DAY, "n": n},
+            {"d": DAY + timedelta(days=2) if booked else DAY, "e": DAY + timedelta(days=60), "n": n},
         )
     ]
+
+
+def test_spanish_speakers_get_times_in_spanish(conn, office) -> None:
+    (p,) = [r[0] for r in conn.execute(text(
+        "SELECT patient_id FROM patients WHERE sms_consent AND phone_type = 'cell' AND guardian_id IS NULL "
+        "AND language = 'Spanish' AND birth_date < '2000-01-01' AND patient_id NOT IN (SELECT patient_id FROM "
+        "appointments WHERE status = 'scheduled' AND date > :d) ORDER BY patient_id LIMIT 1"), {"d": DAY})]  # fmt: skip
+    _sent(conn, p, "recall", f"recall-{p}")
+    r = ReplyDesk(conn, office, S, DAY).receive(p, "sms", "Sí")
+    assert r["auto_reply"].startswith("Perfecto") and " a las " in r["auto_reply"] and " at " not in r["auto_reply"]
 
 
 def _sent(conn, patient: str, purpose: str, ref: str, code: str = "") -> None:
@@ -112,7 +124,8 @@ def test_reschedule_frees_the_slot_offers_it_to_backups_and_the_first_yes_wins(c
     (p,) = _texters(conn, 1, booked=True)
     appt = conn.execute(
         text("SELECT appt_id FROM appointments WHERE patient_id = :p AND status = 'scheduled' AND date > :d "
-             "ORDER BY date LIMIT 1"), {"p": p, "d": DAY + timedelta(days=2)}).scalar()  # fmt: skip
+             "AND date < :e ORDER BY date LIMIT 1"),
+        {"p": p, "d": DAY + timedelta(days=2), "e": DAY + timedelta(days=60)}).scalar()  # fmt: skip
     _sent(conn, p, "confirm", appt)
     agent = ReplyDesk(conn, office, S, DAY)
     r = agent.receive(p, "sms", "Can I do another day instead?")
@@ -123,10 +136,12 @@ def test_reschedule_frees_the_slot_offers_it_to_backups_and_the_first_yes_wins(c
     assert 1 <= len(offers) <= S["refill"]["offers_at_once"]
     assert p not in {c for _, c in offers}
     first = agent.receive(offers[0].contact_id, "sms", "Yes")
-    assert first["auto_reply"].startswith("You're booked")
+    assert first["auto_reply"].startswith(("You're booked", "Su cita"))
     if len(offers) > 1:
         second = agent.receive(offers[1].contact_id, "sms", "Yes")
-        assert "just taken" in second["auto_reply"]
+        assert any(
+            w in second["auto_reply"] for w in ("just taken", "acaba de tomar")
+        )  # backups may be Spanish speakers
     assert conn.execute(text("SELECT count(*) FROM refill_offers WHERE status = 'won'")).scalar() == 1
     agent.receive(p, "sms", "1")
     _no_overlaps(conn)
@@ -135,7 +150,8 @@ def test_reschedule_frees_the_slot_offers_it_to_backups_and_the_first_yes_wins(c
 def test_confirmations_questions_and_escalation(conn, office) -> None:
     a, q = _texters(conn, 2, booked=True)
     appt = conn.execute(text("SELECT appt_id FROM appointments WHERE patient_id = :p AND status = 'scheduled' "
-                             "AND date > :d LIMIT 1"), {"p": a, "d": DAY}).scalar()  # fmt: skip
+                             "AND date > :d AND date < :e ORDER BY date LIMIT 1"),
+                        {"p": a, "d": DAY, "e": DAY + timedelta(days=60)}).scalar()  # fmt: skip
     _sent(conn, a, "confirm", appt)
     agent = ReplyDesk(conn, office, S, DAY)
     assert agent.receive(a, "sms", "C")["auto_reply"].startswith("Thanks, you're confirmed")

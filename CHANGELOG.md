@@ -21,7 +21,18 @@ each minor version is a finished milestone.
   hours saved, the schedule, outreach, insurance and the next 90 days; `make report`, `/offices/{id}/report`,
   `/offices/{id}/report.html`, `configs/reports.json`
 
+- Simulator tuned to published benchmarks (no-shows, cancellations, case acceptance, retention, reminder effect,
+  outreach response, opt-outs), with sources in `docs/12_benchmarks.md`
+- The full plan to launch in `docs/STATUS.md` (20 items before demo mode, the before-launch checklist) and the
+  expanded roadmap (v2 to v5, rules, cost to run)
+
+### Changed
+- The 13-week forecast averages the last 13 weeks instead of 8 (steadier for a single dentist's column)
+
 ### Fixed (found by the scorecard)
+- Treatment model recalibration no longer flips its ranking on a small recent window (AUC 0.38 at the heavy
+  no-show office); a flat or negative slope only shifts the level
+- Times offered in Spanish read "a las", not "at"
 - The slot plan now counts the agents' own bookings and cancellations, so it never offers a time already booked
   by text
 - At-risk visits with no procedure codes no longer crash the optimizer

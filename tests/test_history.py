@@ -70,7 +70,7 @@ def test_visiting_specialists_only_come_on_their_weeks(group_sim) -> None:
 def test_no_show_and_late_cancel_rates_match_offices_with_reminders(solo_sim) -> None:
     past = _past(solo_sim, kinds=None)
     status = Counter(a.status for a in past)
-    assert 0.04 <= status["no_show"] / len(past) <= 0.08
+    assert 0.03 <= status["no_show"] / len(past) <= 0.06  # docs/12_benchmarks.md
     assert 0.03 <= status["late_cancel"] / len(past) <= 0.06
 
 

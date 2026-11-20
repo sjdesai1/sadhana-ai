@@ -68,7 +68,7 @@ lists overbooking too.
 The 90-day plan, week by week and per column:
 1. Capacity: chair hours from the office calendar (hours, lunch, who works which day, holidays)
 2. Booked: what is on the books now, plus the agents' bookings and cancellations not yet in the PMS
-3. Expected with the office's usual booking: its share of capacity filled over the last 8 weeks, never below
+3. Expected with the office's usual booking: its share of capacity filled over the last 13 weeks, never below
    what is booked times its recent show rate
 4. Outreach on top: recall (overdue now, spread over 6 weeks; coming due, in the week it is due) and treatment
    follow-up (spread over 8 weeks), each at the measured lift (or the assumption until measured), capped by the
