@@ -26,7 +26,16 @@ each minor version is a finished milestone.
 - The full plan to launch in `docs/STATUS.md` (20 items before demo mode, the before-launch checklist) and the
   expanded roadmap (v2 to v5, rules, cost to run)
 
+- Outreach lift by segment (new, established, lapsed), stored per segment, shown in the monthly report ("Who
+  responds") and checked against each segment's hidden truth in the scorecard
+- The monthly report shows a likely range on recovered revenue, from the intervals on each measured lift
+- Missed-visit features: recent misses, days since the last miss, advance cancellations
+
 ### Changed
+- Missed-visit history is what was known the day before the visit, not at booking; that model uses shallower,
+  more regularized trees; its AUC floor in the scorecard and tests moved from 0.58 to 0.55 (see
+  docs/13_m10_segments.md)
+- New nullable columns are also added to existing shared (sadhana_meta) tables
 - The 13-week forecast averages the last 13 weeks instead of 8 (steadier for a single dentist's column)
 
 ### Fixed (found by the scorecard)

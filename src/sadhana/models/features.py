@@ -112,6 +112,30 @@ def _history(appts: pd.DataFrame, events: pd.DataFrame, at_col: str) -> pd.DataF
     return out
 
 
+def _recent(appts: pd.DataFrame, events: pd.DataFrame, at_col: str) -> pd.DataFrame:
+    """Recent behavior before `at`: was the last visit missed, misses in the last three, days since the last miss,
+    and visits cancelled ahead of time."""
+    past = appts[appts["status"].isin(("completed", "cancelled", *MISSED))][["patient_id", "date", "status_on",
+                                                                             "status"]]  # fmt: skip
+    ev = pd.DataFrame({"patient_id": events["patient_id"].to_numpy(), "at": events[at_col].to_numpy()})
+    ev["_row"] = np.arange(len(ev))
+    m = ev.merge(past, on="patient_id", how="inner")
+    cancels = m[m["status"].eq("cancelled") & (m["status_on"] < m["at"])].groupby("_row").size()
+    v = m[~m["status"].eq("cancelled") & (m["date"] < m["at"])].sort_values(["_row", "date"])
+    v = v.assign(miss=v["status"].isin(MISSED).astype(int))
+    last3 = v.groupby("_row").tail(3).groupby("_row")["miss"].sum()
+    last = v.groupby("_row").tail(1).set_index("_row")["miss"]
+    last_miss = v[v["miss"].eq(1)].groupby("_row")["date"].max()
+    out = pd.DataFrame(index=np.arange(len(ev)))
+    out["last_visit_missed"] = last.reindex(out.index).fillna(0)
+    out["misses_last3"] = last3.reindex(out.index).fillna(0)
+    at = pd.Series(ev["at"].to_numpy(), index=out.index)
+    out["days_since_last_miss"] = (at - last_miss.reindex(out.index)).dt.days.fillna(9999).clip(upper=9999)
+    out["prior_cancels"] = cancels.reindex(out.index).fillna(0)
+    out.index = events.index
+    return out
+
+
 def missed_visit_frame(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
     """One row per appointment with point-in-time features; `missed` is set for visits already resolved."""
     appts = data["appointments"]
@@ -119,8 +143,12 @@ def missed_visit_frame(data: dict[str, pd.DataFrame]) -> pd.DataFrame:
     rows["missed"] = np.where(rows["status"].isin(MISSED), 1.0, np.where(rows["status"].eq("completed"), 0.0, np.nan))
     static = _patient_static(data["patients"])
     rows = rows.merge(static, on="patient_id", how="left")
-    hist = _history(appts, rows, "booked_on")
-    rows = pd.concat([rows, hist], axis=1)
+    # what is known the day before the visit (or today, for visits further out): misses between booking and the
+    # visit count; a recall booked six months ahead says little at booking time
+    known = appts.loc[appts["status"].isin(("completed", *MISSED)), "date"].max() + pd.Timedelta(days=1)
+    rows["seen_by"] = (rows["date"] - pd.Timedelta(days=1)).clip(upper=known)
+    hist = _history(appts, rows, "seen_by")
+    rows = pd.concat([rows, hist, _recent(appts, rows, "seen_by")], axis=1)
     rows["age"] = (rows["date"] - rows["birth_date"]).dt.days / 365.25
     rows["lead_days"] = (rows["date"] - rows["booked_on"]).dt.days
     rows["weekday"] = rows["date"].dt.day_of_week
@@ -138,6 +166,7 @@ MISSED_FEATURES = [
     "prior_visits", "prior_completed", "prior_no_shows", "prior_late_cancels", "prior_miss_rate",
     "days_since_last_visit", "tenure_days", "lead_days", "weekday", "month", "hour", "rebooked",
     "is_hygiene", "is_new_patient", "is_emergency", "is_treatment", "payer_cash", "payer_medicaid",
+    "last_visit_missed", "misses_last3", "days_since_last_miss", "prior_cancels",
 ]  # fmt: skip
 
 

@@ -45,13 +45,16 @@ def main() -> None:
             f"  escalations: {r.escalations}; still open: "
             + (", ".join(f"{k} {v}" for k, v in r.desk_open.items()) or "none")
         )
-        for e in r.estimates:
+        for e in [e for e in r.estimates if not e["segment"]]:
             note = f" (optimizer assumed {assumed[e['lift_group']]:.0%})" if e["lift_group"] in assumed else ""
             print(
                 f"  lift {e['lift_group']}: {e['lift']:.1%} [{e['ci_low']:.1%} to {e['ci_high']:.1%}]{note}; "
                 f"outreach {e['rate_outreach']:.1%} of {e['n_outreach']:,} vs holdout {e['rate_holdout']:.1%} "
                 f"of {e['n_holdout']:,}"
             )
+        segs = [e for e in r.estimates if e["segment"] and e["lift_group"] != "confirm"]
+        if segs:
+            print("  by segment: " + "; ".join(f"{e['lift_group']} {e['segment']} {e['lift']:.0%}" for e in segs))
 
 
 if __name__ == "__main__":

@@ -16,9 +16,10 @@
      "overrides": {"outcomes": {"office_reminder_no_show_factor": 1.6, "office_reminder_late_cancel_factor": 1.4}},
      "note": "an office whose reminders barely work: no-shows well above normal"}
   ],
+  "missed_visit_note": "Floor lowered from 0.58 to 0.55 when the simulator moved to realistic no-show rates (about 5%): the best any model can do then is about 0.60-0.65, so the gap to the best possible (0.08 or less) is the main check (docs/13_m10_segments.md)",
   "checks_note": "A 95% interval misses the truth about 1 time in 20 by design, so each run is held to 3 standard errors and the share of intervals that cover the truth is reported across the scorecard",
   "checks": {
-    "models.missed_visit.auc": [">=", 0.58],
+    "models.missed_visit.auc": [">=", 0.55],
     "models.missed_visit.gap_to_best": ["<=", 0.08],
     "models.missed_visit.calibration_error": ["<=", 0.06],
     "models.recall_self_book.auc": [">=", 0.65],
@@ -31,6 +32,7 @@
     "optimizer.double_bookings": ["==", 0],
     "outreach.recall_lift_error_in_se": ["<=", 3],
     "outreach.treatment_lift_error_in_se": ["<=", 3],
+    "outreach.segment_lift_worst_error_in_se": ["<=", 3.5],
     "outreach.rule_violations": ["==", 0],
     "outreach.opt_out_rate": ["<=", 0.03],
     "replies.double_bookings": ["==", 0],

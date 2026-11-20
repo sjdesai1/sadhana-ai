@@ -216,6 +216,7 @@ def office_outreach(office_id: str) -> dict[str, Any]:
             text(
                 "SELECT DISTINCT ON (lift_group) lift_group, as_of, n_outreach, n_holdout, rate_outreach, "
                 "rate_holdout, lift, ci_low, ci_high FROM sadhana_meta.lift_estimates WHERE office_id = :o "
+                "AND segment IS NULL "
                 "ORDER BY lift_group, measured_at DESC, id DESC"
             ),
             {"o": office_id},

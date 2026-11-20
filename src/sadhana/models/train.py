@@ -41,6 +41,13 @@ PARAMS = {
 }
 
 
+# Missed visits are rare (about 1 in 10) and the signal is weak, so that model gets shallower, more regularized
+# trees; on the scorecard this holds up better on hidden offices than the shared settings (docs/13_m10_segments.md)
+MODEL_PARAMS = {
+    "missed_visit": {"max_depth": 3, "min_child_weight": 30, "reg_lambda": 5.0, "colsample_bytree": 0.6},
+}
+
+
 class Predictor:
     """The trained model plus an optional Platt adjustment fit on the most recent months, so probabilities stay
     honest when behavior drifts over time (acceptance rates rising, for example)."""
@@ -117,7 +124,7 @@ def _fit_and_test(
     test = labeled[labeled[time_col] >= test_from]
     if min(len(train), len(valid), len(test)) == 0 or train[target].nunique() < 2:
         raise ValueError(f"{model_name}: not enough history to train and test")
-    clf = XGBClassifier(**PARAMS)
+    clf = XGBClassifier(**{**PARAMS, **MODEL_PARAMS.get(model_name, {})})
     clf.fit(train[feats], train[target], eval_set=[(valid[feats], valid[target])], verbose=False)
     model = Predictor(clf, feats)
     if recalibrate:
