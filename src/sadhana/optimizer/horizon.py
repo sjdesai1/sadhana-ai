@@ -3,7 +3,7 @@
 - Capacity: chair hours from the office calendar (hours, lunch, who works which day, holidays)
 - Booked: what is on the books now, including the agents' bookings and cancellations not yet in the PMS
 - Expected: hours the office will really fill with its usual booking. The share of capacity it filled over the
-  last eight weeks, never below what is already booked times its recent show rate. Backtested on past quarters
+  last 13 weeks, never below what is already booked times its recent show rate. Backtested on past quarters
   (see `backtest`): about 5% weekly error for hygiene, and the quarter total within a few percent
 - Outreach: on top of that, recall outreach and treatment follow-up add bookings at the measured lift (or the
   assumption until it is measured), spread over the coming weeks and capped by the open hours each week

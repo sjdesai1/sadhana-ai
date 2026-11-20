@@ -6,11 +6,35 @@
 - Stage 3: real data, Open Dental's demo database, then a pilot office
 
 ## Product versions
-- v1: schedule recovery. Recall, treatment follow-up, slot optimizer, at-risk visits, outreach with measured lift
-- v2: insurance verification, patient collections
-- v3: AI receptionist, claims and denials, payments and financing, membership plans for uninsured patients
-- v4: benchmarks across offices, staffing, supply ordering, practice valuation for private equity and dental groups
+- v1: schedule recovery. Recall, treatment follow-up, slot optimizer, 90-day plan, outreach with measured lift,
+  replies and refill, the front desk queue, the monthly report, payer rates from paid claims, plus the 20 items in
+  `docs/STATUS.md` (segments, churn and lifetime value, uplift, market report, year-end push and January restart,
+  family scheduling, waitlist, scorecards and fee check, huddle sheet and alerts, owner digest, cosmetic interest,
+  same-day treatment, insurance-aware booking, slot holds, reminders by risk, exam routing, reason codes, closure
+  rebooking)
+- v2: insurance verification, patient collections; fee tuning, missed billing (documented work only, with
+  over-coding flags), leak and embezzlement detection, message testing (wording, time, channel), staffing
+  suggestions, the ideal weekly template, lab case timing, recall intervals by risk (dentist sets), room and
+  assistant scheduling, deposits for repeat no-shows (policy suggestion), post-procedure check-ins, online forms,
+  a self-booking link, data export
+- v3: AI receptionist, claims and denials, payments and financing, membership plans for uninsured patients,
+  chairside treatment presentation with exact out-of-pocket and financing, referrals kept in house
+- v4: benchmarks across offices, staffing marketplace, supply ordering, practice valuation for private equity and
+  dental groups, accounting connection (overhead against similar offices), marketing attribution, dashboards for
+  dental groups, paid market data (search demand, competitor reviews and prices, mobility), de-identified
+  benchmarks (only with BAAs, proper de-identification and counsel)
 - v5: own PMS, and the full stack for each vertical
+
+Rules that hold in every version: insurance-driven offers only for diagnosed or clinically appropriate care;
+cosmetic only with marketing consent and the dentist's approval; suggestions to sell go to the dentist, never
+straight to the patient; language, zip, neighborhood and sex are never model inputs; area data describes the
+office's market, never a patient.
+
+## Cost to run
+- Target about $150 per office per month. Core v1 runs about $25-60 (texts, email, database, nightly models);
+  shared fixed costs (HIPAA hosting, backups, the texting provider) push it higher until about 15-20 offices
+- Add-ons with per-use costs (receptionist voice minutes, clearinghouse fees) are priced to cover themselves
+- A cost meter per office, hard caps on messages and language-model spend, and an alert above target
 
 The messaging engine is built vertical-neutral in v1, so new verticals are a settings pack and an adapter.
 
@@ -34,6 +58,8 @@ Standard pricing after the first 30:
 - Annual prepay: 2 months free. Yearly increase 3-5% (not for founding offices). Multi-location: 10% off at 5+,
   15% at 10+
 - Guarantee: under 5x the fee recovered in a quarter, the next month is free
+- Later: performance pricing (a base fee plus a share of measured recovered revenue above a floor), per-provider
+  pricing, setup fees and annual contracts
 
 ## Verticals
 Scored 1-5, higher is better (Entry: easier to get in; Competition: more open). Judgment calls, to revisit.
@@ -64,6 +90,11 @@ Order:
 
 Edge in every vertical: models that pick who to contact, when and with what, and holdout groups that prove the
 lift. Sending messages alone is a crowded market.
+
+## Other markets
+- POS businesses (restaurants, bars, retail, grocery): models for win-back, slow nights, offers and uplift; bars
+  need age-gated consent for alcohol texts
+- B2B: distributor reorder and churn first; email outreach only (CAN-SPAM), never cold texts
 
 ## International, later
 Canada, Australia, UK, Netherlands and other wealthy markets, each with its own privacy and messaging rules.

@@ -57,7 +57,12 @@ class Predictor:
             return
         z = _logit(self._raw(rows)).reshape(-1, 1)
         lr = LogisticRegression(C=1e6).fit(z, y)
-        self.a, self.b = float(lr.coef_[0][0]), float(lr.intercept_[0])
+        a, b = float(lr.coef_[0][0]), float(lr.intercept_[0])
+        if a < 0.2:
+            # a flat or negative slope on a small window would flatten or flip the model's ranking (found by the
+            # scorecard); keep the ranking and only shift the level to the recent rate
+            a, b = 1.0, float(_logit(np.array([y.mean()]))[0] - np.mean(z))
+        self.a, self.b = a, b
 
     def __call__(self, rows: pd.DataFrame) -> np.ndarray:
         if len(rows) == 0:

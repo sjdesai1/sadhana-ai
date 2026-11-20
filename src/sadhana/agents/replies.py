@@ -25,7 +25,7 @@ from sadhana.agents.scheduling import Scheduler, _hhmm
 from sadhana.data.schema import messages
 from sadhana.messaging import inbound
 from sadhana.messaging.intents import intent
-from sadhana.messaging.templates import render
+from sadhana.messaging.templates import language_code, render
 from sadhana.office_calendar import to_min
 
 Row = dict[str, Any]
@@ -120,7 +120,8 @@ class ReplyDesk:
              "plan": plan_id or None, "d": self.day},
         )  # fmt: skip
         lang = self.patients[contact].get("language")
-        labels = [" at ".join(self._when(o["date"], o["start"], lang)) for o in opts]
+        at = " a las " if language_code(lang) == "es" else " at "
+        labels = [at.join(self._when(o["date"], o["start"], lang)) for o in opts]
         if len(opts) == 1:
             return ("offer_one" if key == "offer_times" else key), {"opt1": labels[0], "opt2": labels[0]}
         return key, {"opt1": labels[0], "opt2": labels[1]}
