@@ -44,7 +44,7 @@ def load_settings(configs_dir: Path) -> Row:
     return json.loads((configs_dir / "simulator" / "responses.json").read_text())
 
 
-def chances(t: Row, purpose: str, group: str, channel: str, cfg: Row) -> tuple[float, float]:
+def chances(t: Row, purpose: str, group: str, channel: str, cfg: Row, segment: str = "") -> tuple[float, float]:
     """(chance of success with no outreach, chance with this outreach) for one person."""
     nat, lift = cfg["natural"], cfg["lift"]
     if group == "confirm":
@@ -65,6 +65,7 @@ def chances(t: Row, purpose: str, group: str, channel: str, cfg: Row) -> tuple[f
     effect *= lift["channel"][channel] * (0.5 + t["text_responsiveness"]) * (0.6 + 0.8 * t["trust_baseline"])
     if purpose == "slot_offer":
         effect *= lift["slot_offer_factor"]
+    effect *= lift.get("segment_factor", {}).get(segment, 1.0)
     effect = min(effect, 0.9)
     return base, base + (1 - base) * effect
 
@@ -84,8 +85,8 @@ def respond(
     targets = (
         conn.execute(
             text(
-                "SELECT t.target_id, t.patient_id, t.purpose, t.lift_group, t.status, m.channel, m.contact_id "
-                "FROM outreach_targets t LEFT JOIN messages m USING (target_id) "
+                "SELECT t.target_id, t.patient_id, t.purpose, t.lift_group, t.status, t.segment, m.channel, "
+                "m.contact_id FROM outreach_targets t LEFT JOIN messages m USING (target_id) "
                 "WHERE t.targeted_on = :d ORDER BY t.target_id"
             ),
             {"d": day},
@@ -114,7 +115,7 @@ def respond(
         if t is None:
             continue
         channel = r["channel"] or ("desk_call" if r["status"] == "desk_call" else "")
-        base, p = chances(t, r["purpose"], r["lift_group"], channel, cfg)
+        base, p = chances(t, r["purpose"], r["lift_group"], channel, cfg, r["segment"] or "")
         success = rng.random() < p
         rows.append(
             {
@@ -217,23 +218,24 @@ def work_desk(conn: Connection, office: Row, msg_settings: Row, cfg: Row, day: d
     return {"desk_done": done, "approved": approved}
 
 
-def true_lift(conn: Connection, truth: dict[str, Row], cfg: Row, group: str) -> float:
+def true_lift(conn: Connection, truth: dict[str, Row], cfg: Row, group: str, segment: str | None = None) -> float:
     """The lift the holdout comparison should find for one group: the outreach group's chances with and without
     the outreach they actually got, in the same terms as the estimate."""
     rows = conn.execute(
         text(
-            "SELECT t.patient_id, t.purpose, t.status, m.channel FROM outreach_targets t "
-            "LEFT JOIN messages m USING (target_id) WHERE t.arm = 'outreach' AND t.lift_group = :g"
+            "SELECT t.patient_id, t.purpose, t.status, m.channel, t.segment FROM outreach_targets t "
+            "LEFT JOIN messages m USING (target_id) WHERE t.arm = 'outreach' AND t.lift_group = :g "
+            "AND (CAST(:s AS text) IS NULL OR t.segment = :s)"
         ),
-        {"g": group},
+        {"g": group, "s": segment},
     ).all()
     base = with_ = 0.0
     n = 0
-    for pid, purpose, status, channel in rows:
+    for pid, purpose, status, channel, seg in rows:
         if pid not in truth:
             continue
         ch = channel or ("desk_call" if status == "desk_call" else "")
-        b, p = chances(truth[pid], purpose, group, ch, cfg)
+        b, p = chances(truth[pid], purpose, group, ch, cfg, seg or "")
         base, with_, n = base + b, with_ + p, n + 1
     base, with_ = base / n, with_ / n
     return (with_ - base) / (1 - base)

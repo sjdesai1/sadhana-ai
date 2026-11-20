@@ -42,6 +42,8 @@ def test_recovered_counts_only_the_measured_difference(engine, report) -> None:
     assert sum(r["extra_bookings"] for r in d["recovered"]) < booked + sum(r["people_reached"] for r in measured)
     assert d["outreach"]["messages"] > 0 and d["desk"]["hours_saved"] > 0
     assert any("backlog" in n for n in d["notes"])
+    low, high = d["recovered_range"]
+    assert low <= d["recovered_total"] <= high
 
 
 def test_nothing_is_claimed_without_a_holdout(engine, report) -> None:
@@ -60,9 +62,10 @@ def test_nothing_is_claimed_without_a_holdout(engine, report) -> None:
             for r in saved:
                 conn.execute(
                     text(
-                        "INSERT INTO sadhana_meta.lift_estimates (office_id, lift_group, as_of, n_outreach, n_holdout, "
-                        "rate_outreach, rate_holdout, lift, ci_low, ci_high) VALUES (:office_id, :lift_group, :as_of, "
-                        ":n_outreach, :n_holdout, :rate_outreach, :rate_holdout, :lift, :ci_low, :ci_high)"
+                        "INSERT INTO sadhana_meta.lift_estimates (office_id, lift_group, segment, as_of, n_outreach, "
+                        "n_holdout, rate_outreach, rate_holdout, lift, ci_low, ci_high) VALUES (:office_id, "
+                        ":lift_group, :segment, :as_of, :n_outreach, :n_holdout, :rate_outreach, :rate_holdout, :lift, "
+                        ":ci_low, :ci_high)"
                     ),
                     dict(r),
                 )
@@ -75,6 +78,7 @@ def test_page_and_endpoints(report) -> None:
 
     html = render(report)
     assert "recovered this month" in html and "Where it came from" in html and "<script" not in html
+    assert "likely range" in html and ("Who responds" in html or not report.segments)
     client = TestClient(app)
     body = client.get(f"/offices/{OFFICE}/report").json()
     assert body["recovered_total"] == pytest.approx(report.recovered_total, rel=0.01)

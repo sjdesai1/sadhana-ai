@@ -41,6 +41,7 @@ class Target:
     reason: str = ""
     channel: str = ""
     contact_id: str = ""
+    segment: str = ""
 
 
 def in_holdout(office_id: str, patient_id: str, lift_group: str, share: float) -> bool:
@@ -105,6 +106,12 @@ class OutreachAgent:
         self.conn, self.office, self.s, self.today = conn, office, settings, today
         q = lambda sql, **p: pd.DataFrame(conn.execute(text(sql), p).mappings().all())  # noqa: E731
         self.patients = load_patients(conn)
+        self.status = {
+            r["patient_id"]: dict(r)
+            for r in conn.execute(
+                text("SELECT patient_id, first_visit, last_visit, completed_visits FROM patient_status")
+            ).mappings()
+        }
         self.slot_plan = q("SELECT id, date, start, patient_id, plan_id, code FROM slot_plan ORDER BY date, start, id")
         self.at_risk = q(
             "SELECT appt_id, patient_id, date, start FROM at_risk_visits ORDER BY value_at_risk DESC, appt_id"
@@ -137,6 +144,15 @@ class OutreachAgent:
         }
         return policy, recent | {(p, g) for p in done for g in ("recall", "treatment")}
 
+    def segment(self, patient_id: str, day: date) -> str:
+        """New (first visit within a year, or two visits or fewer), lapsed (no visit in 18 months) or established."""
+        st = self.status.get(patient_id)
+        if st is None or st["last_visit"] is None or (day - st["last_visit"]).days > 548:
+            return "lapsed"
+        if (st["completed_visits"] or 0) <= 2 or (st["first_visit"] and (day - st["first_visit"]).days <= 365):
+            return "new"
+        return "established"
+
     def _candidates(self, day: date, skip: set[tuple[str, str]]) -> list[Target]:
         out: list[Target] = []
         seen: set[str] = set()
@@ -145,7 +161,9 @@ class OutreachAgent:
             if pid in seen or (pid, group) in skip or pid not in self.patients:
                 return
             seen.add(pid)
-            out.append(Target(f"{day:%Y%m%d}-{purpose}-{ref}", pid, purpose, group, ref, code, day))
+            t = Target(f"{day:%Y%m%d}-{purpose}-{ref}", pid, purpose, group, ref, code, day)
+            t.segment = self.segment(pid, day)
+            out.append(t)
 
         if self.first_day is None:
             self.first_day = day
@@ -233,7 +251,10 @@ class OutreachAgent:
             target_rows.append(
                 {
                     "office_id": office_id,
-                    **{k: getattr(t, k) for k in ("target_id", "patient_id", "purpose", "lift_group", "ref_id")},
+                    **{
+                        k: getattr(t, k)
+                        for k in ("target_id", "patient_id", "purpose", "lift_group", "ref_id", "segment")
+                    },  # fmt: skip
                     "code": t.code,
                     "targeted_on": day,
                     "arm": t.arm,

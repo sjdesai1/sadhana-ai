@@ -58,6 +58,22 @@ def render(report: Report) -> str:
     names = {"sms": "text", "email": "email"}
     channels = ", ".join(f"{n:,} by {names.get(c, c)}" for c, n in o["by_channel"].items())
     notes = "".join(f"<li>{escape(n)}</li>" for n in r["notes"])
+    labels = {"recall": "Recall", "treatment": "Treatment", "confirm": "Confirmations"}
+    seg_rows = "".join(
+        f"<tr><td>{labels.get(x['lift_group'], x['lift_group'])}</td><td>{escape(x['segment'])}</td>"
+        f"<td class=n>{x['n_outreach'] + x['n_holdout']:,}</td><td class=n>{_pct(x['rate_outreach'])}</td>"
+        f"<td class=n>{_pct(x['rate_holdout'])}</td><td class=n>{_pct(x['lift'])}</td></tr>"
+        for x in r["segments"]
+        if x["lift_group"] != "confirm"
+    )
+    segments = (
+        "<h2>Who responds</h2><table><tr><th>Outreach</th><th>Patients</th><th class=n>Picked</th>"
+        "<th class=n>Booked, reached</th><th class=n>Booked, left alone</th><th class=n>Moved by outreach</th></tr>"
+        f"{seg_rows}</table><p class=note>New: first visit within a year. Established: regular patients. Lapsed: no "
+        "visit in 18 months. Small groups move a lot from month to month.</p>"
+        if seg_rows
+        else ""
+    )
     return f"""<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1"><title>Monthly report</title><style>{CSS}</style>
 </head><body><main>
@@ -69,12 +85,16 @@ def render(report: Report) -> str:
 <div class=tile><b>{d["hours_saved"]:.0f} h</b>of front desk time saved</div>
 </div>
 <p>Counted only where it can be shown: patients reached against a group left alone, so people who would have
-booked anyway are not counted. Margin to the office after labor, lab and materials: {_money(r["margin_total"])}.</p>
+booked anyway are not counted. The likely range is {_money(r["recovered_range"][0])} to
+{_money(r["recovered_range"][1])}; it narrows as more months come in.
+Margin to the office after labor, lab and materials: {_money(r["margin_total"])}.</p>
 
 <h2>Where it came from</h2>
 <table><tr><th>Source</th><th class=n>Reached</th><th class=n>Extra visits</th><th class=n>Collected</th>
 <th class=n>Margin</th></tr>{rows}</table>
 <p class=note>* Not measured against a holdout yet; see the notes.</p>
+
+{segments}
 
 <h2>The schedule in {escape(s["month"])}</h2>
 <table><tr><th></th><th class=n>{escape(s["month"])}</th><th class=n>Month before</th></tr>

@@ -46,11 +46,18 @@ class Report:
     desk: Row = field(default_factory=dict)
     insurance: Row = field(default_factory=dict)
     next_90: Row = field(default_factory=dict)
+    segments: list[Row] = field(default_factory=list)  # outreach lift for new, established and lapsed patients
     notes: list[str] = field(default_factory=list)
 
     @property
     def recovered_total(self) -> float:
         return round(sum(r["collected"] for r in self.recovered), 2)
+
+    @property
+    def recovered_range(self) -> tuple[float, float]:
+        """The 95% range on recovered, from the ranges on each measured lift."""
+        return (round(sum(r["collected_low"] for r in self.recovered), 2),
+                round(sum(r["collected_high"] for r in self.recovered), 2))  # fmt: skip
 
     @property
     def margin_total(self) -> float:
@@ -67,6 +74,7 @@ class Report:
             "period": [self.period[0].isoformat(), self.period[1].isoformat()],
             "fee": self.fee,
             "recovered_total": self.recovered_total,
+            "recovered_range": list(self.recovered_range),
             "margin_total": self.margin_total,
             "return_on_fee": self.roi,
             "recovered": self.recovered,
@@ -75,6 +83,7 @@ class Report:
             "desk": self.desk,
             "insurance": self.insurance,
             "next_90": self.next_90,
+            "segments": self.segments,
             "notes": self.notes,
         }
 
@@ -143,7 +152,7 @@ def build_report(engine: Engine, office_id: str, today: date) -> Report:
             for r in conn.execute(
                 text(
                     "SELECT DISTINCT ON (lift_group) lift_group, n_outreach, n_holdout, rate_outreach, rate_holdout, "
-                    "lift, ci_low, ci_high FROM sadhana_meta.lift_estimates WHERE office_id = :o "
+                    "lift, ci_low, ci_high FROM sadhana_meta.lift_estimates WHERE office_id = :o AND segment IS NULL "
                     "ORDER BY lift_group, measured_at DESC, id DESC"
                 ),
                 {"o": office_id},
@@ -182,10 +191,14 @@ def build_report(engine: Engine, office_id: str, today: date) -> Report:
                 marg = sum(v[1] for v in vals) / len(vals)
             else:
                 coll, marg = hyg_collected, hyg_margin
+            # the 95% range on the lift, in the same terms: extra visits at the low and high end
+            scale = (1 - float(est.rate_holdout)) * len(targets) * (show if group != "confirm" else 1.0)
+            low, high = max(0.0, float(est.ci_low)) * scale, max(0.0, float(est.ci_high)) * scale
             report.recovered.append(
                 {"source": label, "measured": True, "people_reached": len(targets),
                  "rate_with_outreach": float(est.rate_outreach), "rate_holdout": float(est.rate_holdout),
                  "extra_bookings": round(extra, 1), "collected": round(extra * coll, 2),
+                 "collected_low": round(low * coll, 2), "collected_high": round(high * coll, 2),
                  "margin": round(extra * marg, 2),
                  "interval": [round(float(est.ci_low), 3), round(float(est.ci_high), 3)]}
             )  # fmt: skip
@@ -203,7 +216,7 @@ def build_report(engine: Engine, office_id: str, today: date) -> Report:
             report.recovered.append(
                 {"source": "Cancelled slots refilled", "measured": False, "people_reached": len(refills),
                  "extra_bookings": round(len(refills) * share, 1), "collected": round(coll, 2),
-                 "margin": round(marg, 2)}
+                 "collected_low": round(coll, 2), "collected_high": round(coll, 2), "margin": round(marg, 2)}
             )  # fmt: skip
             report.notes.append(
                 f"Refills count {1 - cfg['refill_without_sadhana']:.0%} of their value: the desk might have filled "
@@ -260,6 +273,22 @@ def build_report(engine: Engine, office_id: str, today: date) -> Report:
             "benefits_resetting_dec_31": round(float(benefits[0]), 2),
             "patients_with_benefits_left": int(benefits[1]),
         }
+    with engine.connect() as conn:
+        report.segments = [
+            {
+                k: (float(v) if k not in ("lift_group", "segment", "n_outreach", "n_holdout") else v)
+                for k, v in r.items()
+            }
+            for r in conn.execute(
+                text(
+                    "SELECT DISTINCT ON (lift_group, segment) lift_group, segment, n_outreach, n_holdout, "
+                    "rate_outreach, rate_holdout, lift, ci_low, ci_high FROM sadhana_meta.lift_estimates "
+                    "WHERE office_id = :o AND segment IS NOT NULL "
+                    "ORDER BY lift_group, segment, measured_at DESC, id DESC"
+                ),
+                {"o": office_id},
+            ).mappings()
+        ]
     report.schedule = _schedule(engine, office, start)
     plan = forecast_office(engine, office_id, today).summary()
     report.next_90 = {k: plan[k] for k in ("utilization", "utilization_with_outreach", "outreach_value",

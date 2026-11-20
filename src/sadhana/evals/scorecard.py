@@ -151,7 +151,7 @@ def _outreach_metrics(engine: Engine, label: str, sim_dir: Path, days: int, m: R
     r = run_outreach(engine, label, SIM_TODAY, days, sim_dir)
     truth = responses.load_truth(sim_dir)
     cfg = responses.load_settings(settings.configs_dir)
-    est = {e["lift_group"]: e for e in r.estimates}
+    est = {e["lift_group"]: e for e in r.estimates if not e["segment"]}
     with office_session(engine, label) as conn:
         for group in ("recall", "treatment"):
             if group in est:
@@ -162,6 +162,18 @@ def _outreach_metrics(engine: Engine, label: str, sim_dir: Path, days: int, m: R
                 se = (est[group]["ci_high"] - est[group]["ci_low"]) / (2 * 1.96)
                 info[f"{group}_lift_covered"] = bool(est[group]["ci_low"] <= true <= est[group]["ci_high"])
                 m[f"outreach.{group}_lift_error_in_se"] = abs(est[group]["lift"] - true) / se if se else None
+        # by segment: each measured lift against the truth for that segment, where the holdout is big enough
+        worst, segs = 0.0, {}
+        for e in r.estimates:
+            if not e["segment"] or e["lift_group"] == "confirm" or e["n_holdout"] < 30:
+                continue
+            true = responses.true_lift(conn, truth, cfg, e["lift_group"], e["segment"])
+            se = (e["ci_high"] - e["ci_low"]) / (2 * 1.96)
+            segs[f"{e['lift_group']}_{e['segment']}"] = {"true": round(true, 4), "measured": e["lift"]}
+            if se:
+                worst = max(worst, abs(e["lift"] - true) / se)
+        info["segment_lifts"] = segs
+        m["outreach.segment_lift_worst_error_in_se"] = worst if segs else None
         q = lambda sql: int(conn.execute(text(sql)).scalar() or 0)  # noqa: E731
         violations = {
             "after_stop": q(

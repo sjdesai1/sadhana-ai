@@ -404,6 +404,7 @@ outreach_targets = Table(  # everyone the outreach agent picked, including the h
     Column("patient_id", String(16), nullable=False, index=True),
     Column("purpose", String(16)),  # confirm, slot_offer, treatment, recall
     Column("lift_group", String(16)),  # what the result measures: confirm, recall, treatment
+    Column("segment", String(16)),  # new, established or lapsed, at the time they were picked
     Column("ref_id", String(40)),  # the appointment, plan item or slot it is about
     Column("code", String(8)),
     Column("targeted_on", Date, index=True),
@@ -563,6 +564,7 @@ lift_estimates = Table(  # measured effect of outreach, outreach group vs holdou
     Column("id", BigInteger, primary_key=True, autoincrement=True),
     Column("office_id", String(64), nullable=False, index=True),
     Column("lift_group", String(16), nullable=False),
+    Column("segment", String(16)),  # empty for the whole group; new, established or lapsed otherwise
     Column("as_of", Date),
     Column("n_outreach", Integer),
     Column("n_holdout", Integer),

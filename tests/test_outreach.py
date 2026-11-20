@@ -89,12 +89,31 @@ def test_measured_lift_finds_the_hidden_truth(engine, pilot) -> None:
     cfg = responses.load_settings(settings.configs_dir)
     with office_session(engine, OFFICE) as conn:
         true = {g: responses.true_lift(conn, truth, cfg, g) for g in ("recall", "treatment")}
-    est = {e["lift_group"]: e for e in result.estimates}
+    est = {e["lift_group"]: e for e in result.estimates if not e["segment"]}
     for group, value in true.items():
         assert est[group]["ci_low"] <= value <= est[group]["ci_high"], (group, value, est[group])
         assert est[group]["n_holdout"] >= 100
     # the optimizer's guesses were too high; measuring is the point
     assert est["recall"]["lift"] < 0.3 and est["treatment"]["lift"] < 0.15
+
+
+def test_lift_by_segment_finds_each_segments_truth(engine, pilot) -> None:
+    """Regular patients answer more than new ones, lapsed ones far less (hidden); each measured segment lift sits
+    within a few standard errors of its own truth."""
+    result, sim_dir = pilot
+    truth = responses.load_truth(sim_dir)
+    cfg = responses.load_settings(settings.configs_dir)
+    segs = [e for e in result.estimates if e["segment"] and e["lift_group"] in ("recall", "treatment")]
+    assert {e["segment"] for e in segs} >= {"new", "established"}
+    with office_session(engine, OFFICE) as conn:
+        for e in segs:
+            if e["n_holdout"] < 30:
+                continue
+            true = responses.true_lift(conn, truth, cfg, e["lift_group"], e["segment"])
+            se = (e["ci_high"] - e["ci_low"]) / (2 * 1.96)
+            assert abs(e["lift"] - true) <= 3.5 * se, (e, true)
+        segments = {r[0] for r in conn.execute(text("SELECT DISTINCT segment FROM outreach_targets"))}
+    assert segments <= {"new", "established", "lapsed"}
 
 
 def test_optimizer_switches_to_the_measured_lift(engine, pilot) -> None:

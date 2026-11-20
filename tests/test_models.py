@@ -34,8 +34,9 @@ def test_models_never_use_language_zip_or_sex() -> None:
 
 def test_missed_visit_model_beats_chance_and_is_calibrated(solo_models) -> None:
     r = solo_models["missed_visit"]
-    # the ceiling here is low (about 0.63-0.68, see the test below): most no-shows are not predictable
-    assert r.auc > 0.58 and r.calibration_error < 0.05
+    # the ceiling is low (about 0.60-0.65 at realistic no-show rates, see the test below): most no-shows are not
+    # predictable; the gap to the best possible is the stricter check
+    assert r.auc > 0.55 and r.calibration_error < 0.05
     assert 0.05 < r.base_rate < 0.2
 
 
@@ -84,7 +85,9 @@ def test_history_features_only_look_backward(engine, synced) -> None:
     appts = data["appointments"]
     resolved = appts[appts["status"].isin(("completed", "no_show", "late_cancel"))]
     for _, r in rows.iterrows():
-        before = resolved[(resolved["patient_id"] == r["patient_id"]) & (resolved["date"] < r["booked_on"])]
+        # history is what was known the day before the visit (or today, for visits further out), never later
+        assert r["seen_by"] < r["date"]
+        before = resolved[(resolved["patient_id"] == r["patient_id"]) & (resolved["date"] < r["seen_by"])]
         assert r["prior_visits"] == len(before)
 
 

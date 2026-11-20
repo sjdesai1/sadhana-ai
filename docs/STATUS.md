@@ -28,13 +28,14 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
 - Payer rates learned from paid claims, with payers paying under their schedule flagged
 - Milestone 9 (reports): done (the monthly office report and the return on the fee)
 - Simulator tuned to published benchmarks (docs/12_benchmarks.md)
-- Last updated with: simulator benchmarks, and the full plan to launch
+- Lift by segment, likely ranges on recovered, a better-regularized missed-visit model
+- Last updated with: item 2, lift by segment
 
 ## Next
 
 Stage 1, before demo mode (product v1). Each item adds its own scorecard checks:
 1. Simulator tuned to published benchmarks: done
-2. Outreach lift by segment: new, established and lapsed patients, each against the holdout, in the report
+2. Outreach lift by segment: done (docs/13_m10_segments.md), with honest ranges on recovered revenue
 3. Churn and lifetime value: active patients likely to leave, ranked by what they are worth
 4. Uplift model: contact the patients outreach actually moves, from the holdout data
 5. Market report: census moves and income, daytime workers, CDC dental visit rates, dental shortage areas, new
@@ -59,8 +60,7 @@ Stage 1, before demo mode (product v1). Each item adds its own scorecard checks:
 19. Reason codes: every suggestion shows its top reasons in plain words
 20. Closure rebooking: a storm closure rebooks everyone affected in one go
 
-Then demo mode, then pilot readiness, which closes stage 1. Model work found by the scorecard: better
-missed-visit features (two hidden offices below target at realistic no-show rates).
+Then demo mode, then pilot readiness, which closes stage 1.
 
 Before launch, after the build (one at a time):
 - Conversations with dentists and office managers in the territory

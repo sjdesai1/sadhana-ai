@@ -37,8 +37,9 @@ def main() -> None:
         out.mkdir(parents=True, exist_ok=True)
         (out / "report.html").write_text(render(report))
         (out / "report.json").write_text(json.dumps(report.as_dict(), indent=2, default=str) + "\n")
-        print(f"\n{office_id}: recovered ${report.recovered_total:,.0f} for ${report.fee:,.0f} "
-              f"({report.roi:.0f}x); margin ${report.margin_total:,.0f}")  # fmt: skip
+        low, high = report.recovered_range
+        print(f"\n{office_id}: recovered ${report.recovered_total:,.0f} (likely ${low:,.0f} to ${high:,.0f}) for "
+              f"${report.fee:,.0f} ({report.roi:.0f}x); margin ${report.margin_total:,.0f}")  # fmt: skip
         for r in report.recovered:
             print(f"  {r['source']}: {r['extra_bookings']:,.0f} extra visits, ${r['collected']:,.0f}")
         print(f"  front desk time saved: {report.desk['hours_saved']:.0f} hours\n  report: {out / 'report.html'}")

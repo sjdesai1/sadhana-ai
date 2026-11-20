@@ -15,7 +15,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import Connection, Engine, create_engine, text
+from sqlalchemy import Connection, Engine, MetaData, create_engine, text
 
 from sadhana.config import settings
 from sadhana.data.schema import meta, metadata
@@ -38,6 +38,7 @@ def setup_shared(conn: Connection) -> None:
     """Bookkeeping schema and the app role. Safe to run every time."""
     conn.execute(text("CREATE SCHEMA IF NOT EXISTS sadhana_meta"))
     meta.create_all(conn)
+    _add_missing_columns(conn, "sadhana_meta", meta)
     exists = conn.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": APP_ROLE}).scalar()
     if not exists:
         conn.execute(text(f"CREATE ROLE {APP_ROLE} NOLOGIN NOSUPERUSER NOBYPASSRLS"))
@@ -54,7 +55,7 @@ def setup_office(conn: Connection, office_id: str) -> str:
     setup_shared(conn)
     conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema}"))
     metadata.create_all(conn.execution_options(schema_translate_map={None: schema}))
-    _add_missing_columns(conn, schema)
+    _add_missing_columns(conn, schema, metadata)
     for table in metadata.sorted_tables:
         name = f"{schema}.{table.name}"
         conn.execute(text(f"ALTER TABLE {name} ENABLE ROW LEVEL SECURITY"))
@@ -73,10 +74,10 @@ def setup_office(conn: Connection, office_id: str) -> str:
     return schema
 
 
-def _add_missing_columns(conn: Connection, schema: str) -> None:
-    """New nullable columns on tables an office already has (create_all only makes missing tables). A stopgap
-    until migrations (decision 0009)."""
-    for table in metadata.sorted_tables:
+def _add_missing_columns(conn: Connection, schema: str, md: MetaData) -> None:
+    """New nullable columns on tables that already exist (create_all only makes missing tables). A stopgap until
+    migrations (decision 0009)."""
+    for table in md.sorted_tables:
         have = {
             r[0]
             for r in conn.execute(
@@ -87,7 +88,7 @@ def _add_missing_columns(conn: Connection, schema: str) -> None:
         for col in table.columns:
             if col.name not in have:
                 kind = col.type.compile(dialect=conn.dialect)
-                conn.execute(text(f'ALTER TABLE {schema}.{table.name} ADD COLUMN "{col.name}" {kind}'))
+                conn.execute(text(f'ALTER TABLE {schema}.{table.name} ADD COLUMN IF NOT EXISTS "{col.name}" {kind}'))
 
 
 @contextmanager
