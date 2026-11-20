@@ -25,12 +25,12 @@ Product versions (v1 launch, then v2 to v5), pricing and verticals: `docs/strate
   done (reply agent, booking by text, real-time refill, front desk queue with approvals and escalation)
 - Release 0.6.0 (optimizer and agents): tagged
 - Milestone 8 (evals): done (the scorecard across 9 offices and scenarios, graded against hidden truth)
-- Last updated with: milestone 8, the scorecard
+- Payer rates learned from paid claims, with payers paying under their schedule flagged
+- Last updated with: payer rates from paid claims
 
 ## Next
 
-1. Economics learns each payer's allowed amounts from paid claims (the scorecard showed a payer cut goes
-   unnoticed); then reports (the monthly office report and the ROI page), then demo mode
+1. Reports (the monthly office report and the ROI page), then demo mode
 2. Pilot readiness closes stage 1
 3. Stages 2 and 3 as in the roadmap; code walkthrough of every milestone at the end
 

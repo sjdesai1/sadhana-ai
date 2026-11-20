@@ -38,6 +38,7 @@ def main() -> None:
             f"  open: {s['open_blocks']} blocks, {s['open_hours']} chair hours in the next two weeks\n"
             f"  plan: {s['filled_blocks']} offers ({cols}), expected ${s['expected_value']:,.0f}\n"
             f"  at risk: {s['at_risk_visits']} booked visits, ${s['value_at_risk']:,.0f} expected to be lost\n"
+            f"  payers paying under their schedule: {', '.join(s['payers_flagged']) or 'none'}\n"
             f"  overbook: {s['overbook']} slots worth doubling up, expected net ${s['overbook_net']:,.0f}\n"
             f"  outreach lift used: {lifts}"
         )

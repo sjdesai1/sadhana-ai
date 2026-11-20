@@ -14,6 +14,7 @@ from sqlalchemy import Connection, insert, text
 
 from sadhana.config import settings
 from sadhana.data.schema import pending_bookings
+from sadhana.economics import observed
 from sadhana.office_calendar import age_at, hhmm, to_min
 from sadhana.optimizer.plan import Planner
 from sadhana.optimizer.run import gather
@@ -29,7 +30,7 @@ def _hhmm(t: Any) -> str:
 class Scheduler:
     def __init__(self, conn: Connection, office: Row, today: date, horizon_days: int = 120) -> None:
         self.conn, self.office, self.today = conn, office, today
-        self.planner = Planner(office, settings.configs_dir, today)
+        self.planner = Planner(office, settings.configs_dir, today, observed.load(conn))
         self.cal = self.planner.cal
         self.g = gather(conn, today, today + timedelta(days=horizon_days))
         self.patients = self.g["patients"].set_index("patient_id")

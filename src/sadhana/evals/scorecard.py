@@ -52,8 +52,8 @@ TRUTH_FIELDS = ("no_show_rate", "late_cancel_rate", "recall_compliance", "text_r
 
 
 INFO_ROWS = [
-    "missed_visit_rate", "plan_offers", "plan_expected_value", "overbook_slots", "messages", "opt_outs",
-    "booked_by_text", "refilled", "recall_lift_true", "recall_lift_measured", "treatment_lift_true",
+    "payers_flagged", "missed_visit_rate", "plan_offers", "plan_expected_value", "overbook_slots", "messages",
+    "opt_outs", "booked_by_text", "refilled", "recall_lift_true", "recall_lift_measured", "treatment_lift_true",
     "treatment_lift_measured", "utilization_90d", "utilization_90d_with_outreach", "outreach_value_90d",
 ]  # fmt: skip
 
@@ -211,6 +211,16 @@ def _forecast_metrics(engine: Engine, label: str, as_of: date, m: Row) -> None:
         m[f"forecast.{column}_quarter_error"] = abs(float(c["expected_hours"].sum() / c["actual_hours"].sum() - 1))
 
 
+def _expected_payer_cuts(office: str, run: Row) -> set[str]:
+    """Payers the simulation really cut, from the office's own scenarios and the run's."""
+    path = next(settings.configs_dir / d / f"{office}.json" for d in ("offices", "offices_holdout")
+                if (settings.configs_dir / d / f"{office}.json").exists())  # fmt: skip
+    base = json.loads(path.read_text())
+    scenarios = set(base.get("simulation", {}).get("scenarios", [])) | set(run.get("scenarios", []))
+    clock = json.loads((settings.configs_dir / "simulator" / "clock.json").read_text())
+    return {clock["scenarios"]["payer_cut"]["payer"]} if "payer_cut" in scenarios else set()
+
+
 def run_one(engine: Engine, run: Row, cfg: Row, out_root: Path, seed: int | None = None) -> Row:
     seed = cfg["seed"] if seed is None else seed
     label, office = run["label"], run["office"]
@@ -227,6 +237,9 @@ def run_one(engine: Engine, run: Row, cfg: Row, out_root: Path, seed: int | None
     info: Row = {}
     _model_metrics(engine, label, sim, m)
     plan = plan_office(engine, label, SIM_TODAY)
+    expected = _expected_payer_cuts(office, run)
+    info["payers_flagged"] = plan.payers_flagged
+    m["economics.payer_flags_correct"] = int(set(plan.payers_flagged) == expected)
     m["optimizer.plan_vs_first_come"] = plan.expected_value / plan.first_come_value if plan.first_come_value else None
     with office_session(engine, label) as conn:
         m["optimizer.double_bookings"] = _overlaps(conn, include_plan=True)
@@ -300,6 +313,9 @@ def render(results: list[Row]) -> str:
         vals = []
         for r in results:
             v = r["info"].get(k)
+            if isinstance(v, list):
+                vals.append(", ".join(v) or "none")
+                continue
             vals.append("-" if v is None else (f"{v:,.0f}" if isinstance(v, float) and abs(v) >= 100 else f"{v:.3g}"
                                                  if isinstance(v, float) else f"{v:,}"))  # fmt: skip
         lines.append(f"| {k} | " + " | ".join(vals) + " |")

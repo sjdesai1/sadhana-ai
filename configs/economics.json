@@ -1,0 +1,12 @@
+{
+  "source": "How the economics engine learns from the office's own claims",
+  "observed_allowed": {
+    "history_days": 540,
+    "window_days": 180,
+    "credibility_k": 5,
+    "change_threshold": 0.03,
+    "flag_below": 0.03,
+    "min_claims_to_flag": 50,
+    "note": "Blend per payer and code: w x median recent allowed + (1 - w) x the schedule on file, w = n / (n + k). Flag a payer paying more than 3% under its schedule on 50+ recent claims"
+  }
+}

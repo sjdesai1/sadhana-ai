@@ -320,3 +320,23 @@ def office_plan_90(office_id: str) -> dict[str, Any]:
                   "expected_value", "outreach_value"):  # fmt: skip
             totals[k] = round(totals.get(k, 0.0) + (r[k] or 0.0), 2)
     return {"office_id": office_id, "weeks": rows, "totals": totals}
+
+
+@app.get("/offices/{office_id}/payer-check")
+def office_payer_check(office_id: str) -> dict[str, Any]:
+    """How each payer pays against the fee schedule on file, from paid claims; flagged payers pay well under it
+    (make optimize first)."""
+    _synced_office(office_id)
+    with office_session(engine(), office_id) as conn:
+        checks = [
+            _plain(r)
+            for r in conn.execute(
+                text(
+                    "SELECT payer, paid_vs_schedule, claims, changed_on, change, flag FROM payer_schedule_check "
+                    "ORDER BY paid_vs_schedule, payer"
+                )
+            ).mappings()
+        ]
+        learned = conn.execute(text("SELECT count(*) FROM payer_rates")).scalar()
+    return {"office_id": office_id, "payers": checks, "codes_learned": learned,
+            "flagged": [c["payer"] for c in checks if c["flag"]]}  # fmt: skip

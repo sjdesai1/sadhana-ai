@@ -80,11 +80,15 @@ def load_settings(configs_dir: Path) -> Row:
 
 
 class Planner:
-    def __init__(self, office: Row, configs_dir: Path, today: date) -> None:
+    def __init__(
+        self, office: Row, configs_dir: Path, today: date, observed: dict[tuple[str, str], float] | None = None
+    ) -> None:
+        """`observed`: allowed amounts learned from paid claims (economics.observed); the fee schedules on file
+        otherwise."""
         self.office, self.today = office, today
         self.cfg = load_settings(configs_dir)
         self.lift_source = {k: "assumed" for k in self.cfg["outreach_lift"]}
-        inputs = inputs_for(office, configs_dir)
+        inputs = inputs_for(office, configs_dir, observed)
         self.catalog = {r["code"]: r for r in inputs.catalog}
         econ = build(inputs)
         self.margin = {(r["code"], r["payer"], r["provider_id"]): float(r["net_margin"]) for r in econ.detail}
